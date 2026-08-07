@@ -1204,10 +1204,33 @@ fn ffmpeg_binary() -> PathBuf {
     let mut candidates = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
-            candidates.push(parent.join("assets").join("ffmpeg").join("ffmpeg.exe"));
+            let binary_name = if cfg!(target_os = "windows") {
+                "ffmpeg.exe"
+            } else {
+                "ffmpeg"
+            };
+            candidates.push(parent.join("assets").join("ffmpeg").join(binary_name));
+            if cfg!(target_os = "macos") {
+                if let Some(contents_dir) = parent.parent() {
+                    candidates.push(
+                        contents_dir
+                            .join("Resources")
+                            .join("ffmpeg")
+                            .join(binary_name),
+                    );
+                }
+            }
         }
     }
-    candidates.push(PathBuf::from("assets").join("ffmpeg").join("ffmpeg.exe"));
+    candidates.push(
+        PathBuf::from("assets")
+            .join("ffmpeg")
+            .join(if cfg!(target_os = "windows") {
+                "ffmpeg.exe"
+            } else {
+                "ffmpeg"
+            }),
+    );
     candidates
         .into_iter()
         .find(|path| path.is_file())

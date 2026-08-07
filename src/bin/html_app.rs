@@ -4,7 +4,12 @@ mod adapters;
 #[path = "../profiles.rs"]
 mod profiles;
 
+#[cfg(target_os = "windows")]
 #[path = "../virtual_camera.rs"]
+mod virtual_camera;
+
+#[cfg(not(target_os = "windows"))]
+#[path = "../virtual_camera_unsupported.rs"]
 mod virtual_camera;
 
 use adapters::watermark::WatermarkOptions;
@@ -401,6 +406,29 @@ fn mica_class_script(enabled: bool) -> &'static str {
     }
 }
 
+fn bundled_ffmpeg_path() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    let executable_dir = executable.parent()?;
+    let binary_name = if cfg!(target_os = "windows") {
+        "ffmpeg.exe"
+    } else {
+        "ffmpeg"
+    };
+    let mut candidates = vec![executable_dir
+        .join("assets")
+        .join("ffmpeg")
+        .join(binary_name)];
+
+    // macOS application bundles keep resources in Contents/Resources.
+    if cfg!(target_os = "macos") {
+        if let Some(contents_dir) = executable_dir.parent() {
+            candidates.push(contents_dir.join("Resources").join("ffmpeg").join(binary_name));
+        }
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
 fn main() -> wry::Result<()> {
     if let Some(exit_code) = virtual_camera::handle_installer_mode() {
         std::process::exit(exit_code);
@@ -561,15 +589,9 @@ fn spawn_preview_decoder(
     virtual_camera_frames: Arc<virtual_camera::FrameStore>,
 ) {
     std::thread::spawn(move || {
-        let ffmpeg_path = std::env::current_exe()
-            .ok()
-            .and_then(|path| {
-                path.parent()
-                    .map(|parent| parent.join("assets/ffmpeg/ffmpeg.exe"))
-            })
-            .filter(|path| path.is_file());
+        let ffmpeg_path = bundled_ffmpeg_path();
         let Some(ffmpeg_path) = ffmpeg_path else {
-            send_preview_error(&proxy, "缺少实时预览解码组件 assets/ffmpeg/ffmpeg.exe");
+            send_preview_error(&proxy, "缺少实时预览解码组件 assets/ffmpeg/ffmpeg");
             return;
         };
 
@@ -1749,7 +1771,7 @@ fn send_response(proxy: &EventLoopProxy<UserEvent>, response: UiResponse) {
 }
 
 fn load_media_thumbnail(payload: &MediaThumbnailPayload) -> anyhow::Result<Vec<u8>> {
-    let cache_dir = std::env::current_dir()?.join("data/gallery-thumbnails");
+    let cache_dir = gallery_thumbnail_cache_dir()?;
     std::fs::create_dir_all(&cache_dir)?;
 
     let mut hasher = DefaultHasher::new();
@@ -1777,6 +1799,19 @@ fn load_media_thumbnail(payload: &MediaThumbnailPayload) -> anyhow::Result<Vec<u
         let _ = std::fs::remove_file(&temporary);
     }
     Ok(encoded)
+}
+
+fn gallery_thumbnail_cache_dir() -> anyhow::Result<PathBuf> {
+    #[cfg(target_os = "macos")]
+    if let Some(user_home) = std::env::var_os("HOME") {
+        return Ok(PathBuf::from(user_home)
+            .join("Library")
+            .join("Caches")
+            .join("Luna Studio")
+            .join("gallery-thumbnails"));
+    }
+
+    Ok(std::env::current_dir()?.join("data/gallery-thumbnails"))
 }
 
 fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
@@ -1821,11 +1856,8 @@ fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
 }
 
 fn load_video_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
-    let ffmpeg_path = std::env::current_exe()?
-        .parent()
-        .map(|parent| parent.join("assets/ffmpeg/ffmpeg.exe"))
-        .filter(|path| path.is_file())
-        .ok_or_else(|| anyhow::anyhow!("缺少视频缩略图组件 assets/ffmpeg/ffmpeg.exe"))?;
+    let ffmpeg_path = bundled_ffmpeg_path()
+        .ok_or_else(|| anyhow::anyhow!("缺少视频缩略图组件 assets/ffmpeg/ffmpeg"))?;
 
     let mut command = Command::new(ffmpeg_path);
     command.args([

@@ -100,3 +100,16 @@ This file records repository-level operations so another model or developer can 
 - Verified the APK contains `lib/arm64-v8a/libluna_mic_rust.so`, `assets/web/index.html` and the APK watermark assets. JNI exports and native dependencies were checked with NDK `llvm-nm`/`llvm-readelf`.
 - No Android device was attached to ADB, so installation and hardware session checks remain pending. Static APK verification and v2 debug-signature verification passed.
 - Final debug APK: `F:\Insta360onWin\Insta360Linker-android-arm64-debug.apk`, 8,327,872 bytes, SHA-256 `EE29C5BE758F823A5D370B82638A56365303CB828B2DC5AFEBC31939C676DDAB`.
+
+## 2026-08-07 - Native macOS application
+
+- Added native macOS desktop support using tao/wry with the system WebKit runtime while preserving the existing Windows WebView2 build.
+- Added a non-Windows virtual-camera adapter. macOS intentionally reports the system virtual camera as unavailable, while keeping the UCD2 HEVC live-preview pipeline active inside the application.
+- Made FFmpeg runtime discovery platform-aware for live preview, video thumbnails and watermark export, including `Contents/Resources/ffmpeg/ffmpeg` inside a macOS application bundle.
+- Added `build_macos.sh` and `macos/Info.plist` to build, bundle and ad-hoc sign `dist/Luna Studio.app`. The script downloads the appropriate Apple Silicon or Intel FFmpeg runtime when it is missing locally.
+- Moved the macOS thumbnail cache to `~/Library/Caches/Luna Studio/gallery-thumbnails` so Finder-launched application bundles do not attempt to write into their launch directory.
+- Added macOS local-network usage text for connecting to the Luna Ultra camera hotspot.
+- Built and launched the Apple Silicon release successfully. Both the application executable and bundled FFmpeg were verified as native arm64 Mach-O binaries; bundle signature and property-list validation passed.
+- Ran the complete `html_app` test suite on macOS: 45 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.
+- The freshly cloned checkout exposed an unrelated CRLF/LF-only modification in `reverse_apk/tools/ashield_unpack_cluster_disasm.txt`; it was intentionally excluded from this change.
+- Maintenance policy requested by the repository owner: every future code or build update must be recorded by appending to this existing Markdown log as part of the same change.

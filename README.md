@@ -1,6 +1,6 @@
 # Luna Studio
 
-Windows 原生桌面应用，使用 Rust、tao/wry 和 WebView2，当前适配 Insta360 Luna Ultra 与 Mic Pro。
+Rust 原生桌面应用。Windows 使用 WebView2，macOS 使用系统 WebKit，当前适配 Insta360 Luna Ultra 与 Mic Pro。
 
 ## 当前版本
 
@@ -74,6 +74,16 @@ cargo build --release --bin html_app --target-dir target_daily
 ```
 
 构建产物为 `target_daily/release/html_app.exe`。
+
+### macOS
+
+需要 Rust 工具链和 Xcode Command Line Tools。在 Apple Silicon 或 Intel Mac 上运行：
+
+```bash
+./build_macos.sh
+```
+
+应用产物为 `dist/Luna Studio.app`。构建脚本会按当前 Mac 架构下载 FFmpeg 并打包，用于实时监看、视频缩略图和视频水印。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留应用内 HEVC 实时监看。
 
 ## 关键结构
 

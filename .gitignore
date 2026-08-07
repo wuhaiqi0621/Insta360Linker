@@ -15,6 +15,10 @@
 
 # FFmpeg is a redistributable runtime dependency, not project source
 /assets/ffmpeg/*.exe
+/assets/ffmpeg/ffmpeg
+
+# Packaged macOS application
+/dist/
 
 # APK extraction and generated reverse-engineering artifacts
 /reverse_apk/classes.dex
