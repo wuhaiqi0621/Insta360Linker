@@ -2310,6 +2310,7 @@
             loadMedia();
           } else {
             setConnection("未找到 Luna Ultra", "error");
+            showToast(data.message || "请确认 Mac 已连接相机 Wi-Fi", true);
           }
         } else if (res.command === "list_media") {
           state.media = data || [];

@@ -14,7 +14,10 @@ use std::fs;
 
 use std::io::{Read, Write};
 
-use std::net::TcpStream;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs};
+
+#[cfg(target_os = "macos")]
+use std::ffi::CStr;
 
 use std::path::Path;
 
@@ -23,6 +26,103 @@ use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError, TrySendE
 use std::thread::{self, JoinHandle};
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+const CAMERA_CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
+
+fn resolve_camera_address(host: &str, port: u16) -> std::io::Result<SocketAddr> {
+    (host, port)
+        .to_socket_addrs()?
+        .find(|address| address.is_ipv4())
+        .ok_or_else(|| std::io::Error::other(format!("无法解析相机地址 {host}:{port}")))
+}
+
+fn same_ipv4_subnet(local: Ipv4Addr, netmask: Ipv4Addr, target: Ipv4Addr) -> bool {
+    let mask = u32::from(netmask);
+    u32::from(local) & mask == u32::from(target) & mask
+}
+
+#[cfg(target_os = "macos")]
+fn macos_matching_local_ipv4(target: Ipv4Addr) -> std::io::Result<Option<Ipv4Addr>> {
+    let mut addresses: *mut libc::ifaddrs = std::ptr::null_mut();
+    if unsafe { libc::getifaddrs(&mut addresses) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+
+    let mut current = addresses;
+    let mut matched = None;
+    while !current.is_null() {
+        let entry = unsafe { &*current };
+        let is_up = entry.ifa_flags & libc::IFF_UP as u32 != 0;
+        let is_loopback = entry.ifa_flags & libc::IFF_LOOPBACK as u32 != 0;
+        if is_up
+            && !is_loopback
+            && !entry.ifa_name.is_null()
+            && !entry.ifa_addr.is_null()
+            && !entry.ifa_netmask.is_null()
+        {
+            let family = unsafe { (*entry.ifa_addr).sa_family as i32 };
+            if family == libc::AF_INET {
+                let address = unsafe { &*(entry.ifa_addr as *const libc::sockaddr_in) };
+                let netmask = unsafe { &*(entry.ifa_netmask as *const libc::sockaddr_in) };
+                let local = Ipv4Addr::from(u32::from_be(address.sin_addr.s_addr));
+                let mask = Ipv4Addr::from(u32::from_be(netmask.sin_addr.s_addr));
+                if same_ipv4_subnet(local, mask, target) {
+                    let name = unsafe { CStr::from_ptr(entry.ifa_name) }.to_string_lossy();
+                    if !name.starts_with("utun") {
+                        matched = Some(local);
+                        break;
+                    }
+                }
+            }
+        }
+        current = entry.ifa_next;
+    }
+    unsafe { libc::freeifaddrs(addresses) };
+    Ok(matched)
+}
+
+pub fn camera_local_address(host: &str) -> Result<Option<IpAddr>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let target = resolve_camera_address(host, 80).map_err(|error| error.to_string())?;
+        let IpAddr::V4(target) = target.ip() else {
+            return Ok(None);
+        };
+        let local = macos_matching_local_ipv4(target).map_err(|error| error.to_string())?;
+        if local.is_none() && target.is_private() {
+            return Err(format!(
+                "Mac 未连接相机 Wi-Fi：没有找到与 {target} 同网段的物理网卡；请连接相机热点并暂时关闭会接管局域网的 VPN/代理"
+            ));
+        }
+        Ok(local.map(IpAddr::V4))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = host;
+        Ok(None)
+    }
+}
+
+fn connect_camera(host: &str, port: u16) -> std::io::Result<TcpStream> {
+    let destination = resolve_camera_address(host, port)?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use socket2::{Domain, Protocol, Socket, Type};
+
+        let local = camera_local_address(host).map_err(std::io::Error::other)?;
+        let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+        if let Some(local) = local {
+            socket.bind(&SocketAddr::new(local, 0).into())?;
+        }
+        socket.connect_timeout(&destination.into(), CAMERA_CONNECT_TIMEOUT)?;
+        return Ok(socket.into());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    TcpStream::connect_timeout(&destination, CAMERA_CONNECT_TIMEOUT)
+}
 
 pub const DEFAULT_MEDIA_PATH: &str = "/storage_internal/DCIM/Camera01/";
 
@@ -642,7 +742,7 @@ impl LunaAuthSession {
         let mut last_error = None;
         let mut stream = None;
         for attempt in 0..3 {
-            match TcpStream::connect((&*self.host, self.port)) {
+            match connect_camera(&self.host, self.port) {
                 Ok(mut connected) => {
                     connected.set_read_timeout(Some(Duration::from_millis(120)))?;
                     connected.set_write_timeout(Some(Duration::from_secs(3)))?;
@@ -897,7 +997,7 @@ fn send_luna_auth_heartbeat(stream: &mut TcpStream, next_sequence: &mut u8) -> R
 
 impl Ucd2RawSession {
     pub fn open(host: &str) -> anyhow::Result<Self> {
-        let stream = TcpStream::connect((host, 6666))
+        let stream = connect_camera(host, 6666)
             .with_context(|| format!("failed to connect APK-derived UCD2 port {host}:6666"))?;
 
         stream.set_read_timeout(Some(Duration::from_millis(350)))?;
@@ -1581,7 +1681,7 @@ fn run_camera_worker(
     preview_tx: SyncSender<LivePreviewChunk>,
     startup_tx: SyncSender<Result<(), String>>,
 ) {
-    let mut stream = match TcpStream::connect((&*host, 6666)) {
+    let mut stream = match connect_camera(&host, 6666) {
         Ok(stream) => stream,
         Err(error) => {
             let _ = startup_tx.send(Err(format!("无法连接 Luna Ultra 控制端口：{error}")));
@@ -2503,29 +2603,34 @@ fn ucd2_checksum_table() -> [u32; 256] {
 }
 
 pub fn check_status(host: &str, touch_control: bool) -> LunaStatus {
-    let http_ok = TcpStream::connect((host, 80)).is_ok();
+    let route_error = camera_local_address(host).err();
+    let http_ok = route_error.is_none() && connect_camera(host, 80).is_ok();
 
     let control_ok = if touch_control {
-        TcpStream::connect((host, 6666)).is_ok()
+        route_error.is_none() && connect_camera(host, 6666).is_ok()
     } else {
         false
     };
 
-    let message = match (http_ok, control_ok) {
-        (true, true) => "Detected Luna HTTP and UCD2 control ports".to_string(),
+    let message = if let Some(error) = route_error {
+        error
+    } else {
+        match (http_ok, control_ok) {
+            (true, true) => "Detected Luna HTTP and UCD2 control ports".to_string(),
 
-        (true, false) if touch_control => {
-            "HTTP reachable, but UCD2 control port 6666 is unavailable".to_string()
+            (true, false) if touch_control => {
+                "HTTP reachable, but UCD2 control port 6666 is unavailable".to_string()
+            }
+
+            (true, false) => {
+                "HTTP reachable. Control port not touched; use List media to open UCD2 session."
+                    .to_string()
+            }
+
+            (false, true) => "UCD2 control reachable, but HTTP port 80 is unavailable".to_string(),
+
+            (false, false) => "Camera not reachable on ports 80/6666".to_string(),
         }
-
-        (true, false) => {
-            "HTTP reachable. Control port not touched; use List media to open UCD2 session."
-                .to_string()
-        }
-
-        (false, true) => "UCD2 control reachable, but HTTP port 80 is unavailable".to_string(),
-
-        (false, false) => "Camera not reachable on ports 80/6666".to_string(),
     };
 
     LunaStatus {
@@ -2540,7 +2645,7 @@ pub fn check_status(host: &str, touch_control: bool) -> LunaStatus {
 }
 
 pub fn apk_auth_probe(host: &str) -> anyhow::Result<Ucd2ProbeResult> {
-    let mut stream = TcpStream::connect((host, 6666))
+    let mut stream = connect_camera(host, 6666)
         .with_context(|| format!("failed to connect APK-derived UCD2 port {host}:6666"))?;
 
     stream.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -2599,7 +2704,7 @@ pub fn apk_auth_probe(host: &str) -> anyhow::Result<Ucd2ProbeResult> {
 }
 
 pub fn raw_ucd2_probe(host: &str, packets: &[Vec<u8>]) -> anyhow::Result<Ucd2ProbeResult> {
-    let mut stream = TcpStream::connect((host, 6666))
+    let mut stream = connect_camera(host, 6666)
         .with_context(|| format!("failed to connect APK-derived UCD2 port {host}:6666"))?;
 
     stream.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -2868,15 +2973,32 @@ mod tests {
         capture_mode_from_event_body, capture_mode_from_full_status_body, encode_varint,
         extract_complete_ucd2_frames, gimbal_device_axes_from_ui, gimbal_speed_from_event_body,
         is_hevc_keyframe, parse_camera_subdirs, parse_file_list_paths, parse_index,
-        recording_state_from_event_body, resolve_camera_video_profile, ucd2_checksum,
-        zoom_from_capture_settings_body,
+        recording_state_from_event_body, resolve_camera_video_profile, same_ipv4_subnet,
+        ucd2_checksum, zoom_from_capture_settings_body,
     };
+
+    use std::net::Ipv4Addr;
 
     fn hex_bytes(input: &str) -> Vec<u8> {
         input
             .split_whitespace()
             .map(|part| u8::from_str_radix(part, 16).expect("valid hex test byte"))
             .collect()
+    }
+
+    #[test]
+    fn camera_route_requires_matching_ipv4_subnet() {
+        let camera = Ipv4Addr::new(192, 168, 42, 1);
+        assert!(same_ipv4_subnet(
+            Ipv4Addr::new(192, 168, 42, 117),
+            Ipv4Addr::new(255, 255, 255, 0),
+            camera
+        ));
+        assert!(!same_ipv4_subnet(
+            Ipv4Addr::new(192, 168, 43, 117),
+            Ipv4Addr::new(255, 255, 255, 0),
+            camera
+        ));
     }
 
     #[test]
@@ -3838,9 +3960,19 @@ pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::R
 
     let existing = partial.metadata().map(|m| m.len()).unwrap_or(0);
 
-    let mut req = Client::builder()
+    let parsed_url = reqwest::Url::parse(file_url).context("相机媒体地址无效")?;
+    let camera_host = parsed_url
+        .host_str()
+        .ok_or_else(|| anyhow!("相机媒体地址缺少主机"))?;
+    let mut client_builder = Client::builder()
         .no_proxy()
-        .timeout(Duration::from_secs(30))
+        .connect_timeout(CAMERA_CONNECT_TIMEOUT)
+        .timeout(Duration::from_secs(30));
+    if let Some(local) = camera_local_address(camera_host).map_err(anyhow::Error::msg)? {
+        client_builder = client_builder.local_address(local);
+    }
+
+    let mut req = client_builder
         .build()?
         .get(file_url)
         .header(USER_AGENT, "Luna Mic Control NG/0.2")

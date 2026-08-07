@@ -143,3 +143,14 @@ This file records repository-level operations so another model or developer can 
 - Imported the user-provided `Insta360Linker.icon` Icon Composer package into `macos/Insta360Linker.icon`, preserving its original PNG/SVG layers, default/dark/tinted specializations and Liquid Glass annotations.
 - Added a manually dispatched Xcode 27 workflow that compiles the layered Icon Composer source with Apple's `actool` into the native `Assets.car` runtime catalog and a backward-compatible `Insta360Linker.icns` file.
 - Kept Android launcher resources unchanged as requested; this update is scoped to macOS.
+
+## 2026-08-07 - macOS camera route and connection fix
+
+- Diagnosed the Mac connection failure as a false-positive route: the default camera address `192.168.42.1` was being accepted by a VPN/proxy `utun` route even though the Mac was on a different Wi-Fi subnet.
+- Added macOS physical-interface discovery and same-subnet validation for the Luna Ultra private IPv4 address, explicitly excluding `utun` interfaces.
+- Bound all macOS camera TCP sockets to the matching local interface address before connecting, covering detection, persistent media sessions, control/live-preview sessions and APK-derived diagnostic probes.
+- Bound camera HTTP requests to the same local address for media proxying, thumbnails and resumable downloads while retaining proxy bypass.
+- Added a four-second TCP connection timeout so unreachable camera attempts fail predictably instead of hanging on the system route.
+- Surfaced the detailed route error in the application UI, telling the user to connect the camera hotspot and disable a VPN/proxy that takes over local-network traffic.
+- Added subnet regression coverage and updated the root README with the macOS connection requirement.
+- Verified the new route test and `cargo check --bin html_app` on macOS; both passed. Existing dead-code warnings are unchanged.

@@ -420,15 +420,22 @@ fn bundled_ffmpeg_path() -> Option<PathBuf> {
     } else {
         "ffmpeg"
     };
-    let mut candidates = vec![executable_dir
-        .join("assets")
-        .join("ffmpeg")
-        .join(binary_name)];
+    let mut candidates = vec![
+        executable_dir
+            .join("assets")
+            .join("ffmpeg")
+            .join(binary_name),
+    ];
 
     // macOS application bundles keep resources in Contents/Resources.
     if cfg!(target_os = "macos") {
         if let Some(contents_dir) = executable_dir.parent() {
-            candidates.push(contents_dir.join("Resources").join("ffmpeg").join(binary_name));
+            candidates.push(
+                contents_dir
+                    .join("Resources")
+                    .join("ffmpeg")
+                    .join(binary_name),
+            );
         }
     }
 
@@ -1638,11 +1645,16 @@ fn proxy_camera_media(
     }
     ensure_media_session(state, host)?;
 
-    let client = reqwest::blocking::Client::builder()
+    let mut client_builder = reqwest::blocking::Client::builder()
         .no_proxy()
         .connect_timeout(std::time::Duration::from_secs(6))
-        .timeout(std::time::Duration::from_secs(30 * 60))
-        .build()?;
+        .timeout(std::time::Duration::from_secs(30 * 60));
+    if let Some(local) =
+        adapters::luna_local::camera_local_address(host).map_err(anyhow::Error::msg)?
+    {
+        client_builder = client_builder.local_address(local);
+    }
+    let client = client_builder.build()?;
     let request_method = if method == "HEAD" {
         reqwest::Method::HEAD
     } else {
@@ -1848,10 +1860,20 @@ fn gallery_thumbnail_cache_dir() -> anyhow::Result<PathBuf> {
 }
 
 fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
-    let mut response = reqwest::blocking::Client::builder()
+    let parsed = reqwest::Url::parse(url)?;
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| anyhow::anyhow!("缩略图地址缺少相机主机"))?;
+    let mut client_builder = reqwest::blocking::Client::builder()
         .no_proxy()
         .connect_timeout(std::time::Duration::from_secs(5))
-        .timeout(std::time::Duration::from_secs(25))
+        .timeout(std::time::Duration::from_secs(25));
+    if let Some(local) =
+        adapters::luna_local::camera_local_address(host).map_err(anyhow::Error::msg)?
+    {
+        client_builder = client_builder.local_address(local);
+    }
+    let mut response = client_builder
         .build()?
         .get(url)
         .header(reqwest::header::USER_AGENT, "Luna Studio/0.3")
