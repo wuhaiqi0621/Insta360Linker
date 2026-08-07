@@ -56,3 +56,12 @@ This file records repository-level operations so another model or developer can 
 - Ran the complete `html_app` suite: 50 tests passed, 0 failed and 4 hardware/external-image tests remained explicitly ignored.
 - Real-rendered the built-in preset against the Luna original as `target/shenshen-moment-preview-v2.png` and visually confirmed color, size, centering and metadata clearance.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `D88B1EC45664941947050448B5091234E083DE5A5CFC04347DF68C774E151780`.
+
+## 2026-08-07 - Shenshen preset artwork replacement
+
+- Replaced `assets/moment_presets/shenshen-concert.jpg` with the user-provided title-only artwork (white `深深的` lettering and blue strokes on black), removing the previous concert-tour caption from this preset.
+- Kept the existing `shenshen-concert` preset identifier and UI selection so saved user settings remain compatible.
+- The replacement source is `1080x478`; embedded asset SHA-256 is `5D1CAAAD0BB85C450CD1E984182BA328E308CCDF6B80739FB2D8DB973726E4B0`.
+- Ran the watermark suite after replacement: 17 tests passed, 0 failed and the external-image QA test remained explicitly ignored in the regular suite.
+- Ran the external Luna original QA render with the replacement preset and generated `target/shenshen-titleonly-preview.png`; visually confirmed aspect-fit centering, preserved blue/white artwork and metadata clearance.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `0CDA7645E6C9BE132368A11833D0BF7D021E80A743421AF0092B2041F95A9C5B`.
