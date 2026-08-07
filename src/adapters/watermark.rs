@@ -15,8 +15,8 @@ const IMAGE_WATERMARK_CONFIG: &str =
     include_str!("../../assets/apk_watermark/Image_Watermark_Config_Table.txt");
 const FRAME_WATERMARK_CONFIG: &str =
     include_str!("../../assets/apk_watermark/Frame_Watermark_Config_Table.txt");
-const FRAME_TEXT_FONT: &[u8] =
-    include_bytes!("../../assets/apk_watermark/BeihaibeiSC-Regular.ttf");
+const FRAME_TEXT_FONT: &[u8] = include_bytes!("../../assets/apk_watermark/BeihaibeiSC-Regular.ttf");
+const FRAME_TEXT_SCALE: f32 = 1.16;
 
 #[derive(Clone)]
 pub struct WatermarkOptions {
@@ -563,7 +563,7 @@ fn render_zstyle_footer(
     let font = load_frame_font()?;
     let capture_y = photo_bottom + (panel_height as f32 * 0.6184).round() as u32;
     if let Some(segments) = capture_line {
-        let font_size = frame.height() as f32 * config.capture_font_ratio;
+        let font_size = frame.height() as f32 * config.capture_font_ratio * FRAME_TEXT_SCALE;
         let gap = (frame.width() as f32 * config.capture_spacing_ratio)
             .round()
             .max(0.0) as u32;
@@ -572,9 +572,10 @@ fn render_zstyle_footer(
         )?;
     }
     if let Some(timestamp) = timestamp_line {
-        let font_size = frame.height() as f32 * config.timestamp_font_ratio;
+        let font_size = frame.height() as f32 * config.timestamp_font_ratio * FRAME_TEXT_SCALE;
         let timestamp_y = capture_y
-            + (frame.height() as f32 * (config.capture_font_ratio + config.line_spacing_ratio))
+            + (frame.height() as f32
+                * (config.capture_font_ratio * FRAME_TEXT_SCALE + config.line_spacing_ratio))
                 .round()
                 .max(1.0) as u32;
         draw_centered_text(frame, &font, font_size, timestamp, timestamp_y, foreground)?;
@@ -719,10 +720,12 @@ fn format_exif_timestamp(datetime: Option<&str>, offset: Option<&str>) -> Option
     let hour = time_parts.next()?;
     let minute = time_parts.next()?;
     let mut result = format!("{day}-{month_name}-{year} {hour}:{minute}");
-    if let Some(offset) = offset.filter(|value| !value.trim().is_empty()) {
-        result.push_str(" UTC");
-        result.push_str(offset.trim());
-    }
+    let offset = offset
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("+08:00");
+    result.push_str(" UTC");
+    result.push_str(offset);
     Some(result)
 }
 
@@ -838,7 +841,34 @@ fn rasterize_text(
             );
         });
     }
-    Ok(image)
+    Ok(embolden_text(image, color))
+}
+
+fn embolden_text(mut image: RgbaImage, color: [u8; 3]) -> RgbaImage {
+    let source = image.clone();
+    const NEIGHBORS: [(i32, i32); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+    for (x, y, pixel) in source.enumerate_pixels() {
+        if pixel[3] == 0 {
+            continue;
+        }
+        let alpha = ((u16::from(pixel[3]) * 112) / 255) as u8;
+        for (offset_x, offset_y) in NEIGHBORS {
+            let target_x = x as i32 + offset_x;
+            let target_y = y as i32 + offset_y;
+            if target_x < 0
+                || target_y < 0
+                || target_x >= image.width() as i32
+                || target_y >= image.height() as i32
+            {
+                continue;
+            }
+            let target = image.get_pixel_mut(target_x as u32, target_y as u32);
+            if alpha > target[3] {
+                *target = Rgba([color[0], color[1], color[2], alpha]);
+            }
+        }
+    }
+    image
 }
 
 fn extract_video_preview_frame(input: &Path) -> anyhow::Result<RgbaImage> {
@@ -1321,6 +1351,11 @@ mod tests {
     fn formats_luna_direct_output_metadata() {
         let timestamp = format_exif_timestamp(Some("2026:06:18 20:08:37"), Some("+08:00"));
         assert_eq!(timestamp.as_deref(), Some("18-Jun-2026 20:08 UTC+08:00"));
+        let timestamp_without_offset = format_exif_timestamp(Some("2026:06:26 16:45:57"), None);
+        assert_eq!(
+            timestamp_without_offset.as_deref(),
+            Some("26-Jun-2026 16:45 UTC+08:00")
+        );
         assert_eq!(
             format_exposure(exif::Rational {
                 num: 10,
@@ -1361,6 +1396,10 @@ mod tests {
             .unwrap_or_else(|| PathBuf::from("target/step179-original-frame.png"));
         let metadata = read_frame_metadata(&input);
         assert_eq!(metadata.exposure.as_deref(), Some("1/800"));
+        assert_eq!(
+            metadata.timestamp.as_deref(),
+            Some("26-Jun-2026 16:45 UTC+08:00")
+        );
         apply(&WatermarkOptions {
             input,
             output,

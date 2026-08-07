@@ -30,3 +30,9 @@ This file records repository-level operations so another model or developer can 
 - Ran the HTML application's watermark test suite: 15 tests passed, 0 failed and the external-image QA test remained explicitly ignored in the regular suite.
 - Ran the ignored external-image QA test against `G:\Insta360 Luna Ultra\IMG_20260626_164557_021.jpg`; it passed and rendered `target/beihaibei-frame-preview.png` with shutter speed `1/800`.
 - Built the release `html_app` successfully and updated the local daily executable `F:\Insta360onWin\LunaStudio.exe` (SHA-256 `A1541AD7758058E6EE1B2C3FF77D716C34263220D2ED132FAD81D0D894BAABE4`).
+- Follow-up: photos without `OffsetTimeOriginal` now use the app-reference timezone suffix `UTC+08:00`; embedded EXIF offsets still take priority.
+- Follow-up: added a restrained four-neighbor alpha expansion to make Beihaibei SC metadata text slightly heavier without changing its font size or layout coordinates.
+- Follow-up: increased both metadata lines to 116% of the APK table's original font ratio and adjusted the second-line offset to preserve readable spacing.
+- Re-ran the watermark suite after the timezone, weight and size changes: 15 tests passed and 0 failed.
+- Re-ran the external Luna original QA test and generated `target/beihaibei-frame-preview-v2.png`; the rendered timestamp is `26-Jun-2026 16:45 UTC+08:00` and the shutter remains `1/800`.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `90EAF634D229406B8A88DE9173C0C37E7D6BE54498EA5F1D30598D10AE399F0F`.
