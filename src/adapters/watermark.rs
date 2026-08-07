@@ -16,6 +16,8 @@ const IMAGE_WATERMARK_CONFIG: &str =
 const FRAME_WATERMARK_CONFIG: &str =
     include_str!("../../assets/apk_watermark/Frame_Watermark_Config_Table.txt");
 const FRAME_TEXT_FONT: &[u8] = include_bytes!("../../assets/apk_watermark/BeihaibeiSC-Regular.ttf");
+const SHENSHEN_MOMENT_PRESET: &[u8] =
+    include_bytes!("../../assets/moment_presets/shenshen-concert.jpg");
 const FRAME_TEXT_SCALE: f32 = 1.16;
 const FRAME_TEXT_TRACKING_RATIO: f32 = 0.045;
 
@@ -26,6 +28,8 @@ pub struct WatermarkOptions {
     pub position: String,
     pub style: String,
     pub frame_background: String,
+    pub moment_preset: String,
+    pub moment_image: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -194,6 +198,8 @@ pub fn preview(
     style_id: &str,
     position: &str,
     frame_background: &str,
+    moment_preset: &str,
+    moment_image: Option<&Path>,
     max_width: u32,
     max_height: u32,
 ) -> anyhow::Result<Vec<u8>> {
@@ -217,7 +223,14 @@ pub fn preview(
     };
 
     let rendered = if style.kind == "frame" {
-        render_zstyle_frame(source, style, &read_frame_metadata(input), frame_background)?
+        render_zstyle_frame(
+            source,
+            style,
+            &read_frame_metadata(input),
+            frame_background,
+            moment_preset,
+            moment_image,
+        )?
     } else {
         render_mark(source, style, kind, position)?
     };
@@ -328,6 +341,8 @@ fn apply_zstyle_frame(options: &WatermarkOptions, style: &WatermarkStyle) -> any
         style,
         &read_frame_metadata(&options.input),
         &options.frame_background,
+        &options.moment_preset,
+        options.moment_image.as_deref(),
     )?;
     save_image(DynamicImage::ImageRgba8(rendered), &options.output)
 }
@@ -337,6 +352,8 @@ fn render_zstyle_frame(
     style: &WatermarkStyle,
     metadata: &FrameMetadata,
     background_id: &str,
+    moment_preset: &str,
+    moment_image: Option<&Path>,
 ) -> anyhow::Result<RgbaImage> {
     let config = frame_placement(style, source.width(), source.height())
         .ok_or_else(|| anyhow!("该照片比例不在 Insta360 App 的外框水印参数表中"))?;
@@ -377,6 +394,8 @@ fn render_zstyle_frame(
         config,
         metadata,
         background.foreground,
+        moment_preset,
+        moment_image,
     )?;
     Ok(frame)
 }
@@ -533,19 +552,30 @@ fn render_zstyle_footer(
     config: FramePlacement,
     metadata: &FrameMetadata,
     foreground: [u8; 3],
+    moment_preset: &str,
+    moment_image: Option<&Path>,
 ) -> anyhow::Result<()> {
     let panel_height = frame.height().saturating_sub(photo_bottom);
     if panel_height == 0 {
         return Ok(());
     }
 
-    let mut moment =
-        image::load_from_memory(&load_runtime_asset("choose_logo_photo_moment.png")?)?.to_rgba8();
-    prepare_moment_asset(&mut moment, foreground);
-    let moment_width = (frame.width() as f32 * config.moment_width_ratio)
+    let (mut moment, fit_both_dimensions) =
+        load_moment_image(moment_preset, moment_image, foreground)?;
+    let moment_max_width = (frame.width() as f32 * config.moment_width_ratio)
         .round()
         .max(1.0) as u32;
-    let moment_height = scaled_height(&moment, moment_width);
+    let moment_max_height = (panel_height as f32 * 0.40).round().max(1.0) as u32;
+    let (moment_width, moment_height) = if fit_both_dimensions {
+        fit_inside(
+            moment.width(),
+            moment.height(),
+            moment_max_width,
+            moment_max_height,
+        )
+    } else {
+        (moment_max_width, scaled_height(&moment, moment_max_width))
+    };
     moment = imageops::resize(
         &moment,
         moment_width,
@@ -582,6 +612,50 @@ fn render_zstyle_footer(
         draw_centered_text(frame, &font, font_size, timestamp, timestamp_y, foreground)?;
     }
     Ok(())
+}
+
+fn load_moment_image(
+    preset: &str,
+    custom_path: Option<&Path>,
+    foreground: [u8; 3],
+) -> anyhow::Result<(RgbaImage, bool)> {
+    match preset {
+        "shenshen-concert" => Ok((
+            image::load_from_memory(SHENSHEN_MOMENT_PRESET)
+                .context("无法加载深深的巡演 Moment 预设")?
+                .to_rgba8(),
+            true,
+        )),
+        "custom" => {
+            let path = custom_path.ok_or_else(|| anyhow!("请先选择自定义 Luna Moment 图片"))?;
+            Ok((
+                image::open(path)
+                    .with_context(|| {
+                        format!("无法读取自定义 Luna Moment 图片：{}", path.display())
+                    })?
+                    .to_rgba8(),
+                true,
+            ))
+        }
+        _ => {
+            let mut official =
+                image::load_from_memory(&load_runtime_asset("choose_logo_photo_moment.png")?)?
+                    .to_rgba8();
+            prepare_moment_asset(&mut official, foreground);
+            Ok((official, false))
+        }
+    }
+}
+
+fn fit_inside(width: u32, height: u32, max_width: u32, max_height: u32) -> (u32, u32) {
+    let width = width.max(1);
+    let height = height.max(1);
+    let scale =
+        (max_width.max(1) as f64 / width as f64).min(max_height.max(1) as f64 / height as f64);
+    (
+        (width as f64 * scale).round().max(1.0) as u32,
+        (height as f64 * scale).round().max(1.0) as u32,
+    )
 }
 
 impl FrameMetadata {
@@ -1302,6 +1376,8 @@ mod tests {
             position: "bottom-center".to_string(),
             style: "luna-ultra-cn".to_string(),
             frame_background: "black".to_string(),
+            moment_preset: "official".to_string(),
+            moment_image: None,
         })
         .unwrap();
         let rendered = image::open(&output).unwrap();
@@ -1323,6 +1399,8 @@ mod tests {
             position: "bottom-center".to_string(),
             style: "luna-ultra-zstyle-cn".to_string(),
             frame_background: "black".to_string(),
+            moment_preset: "official".to_string(),
+            moment_image: None,
         })
         .unwrap();
         let rendered = image::open(&output).unwrap().to_rgba8();
@@ -1344,6 +1422,8 @@ mod tests {
             "luna-ultra-zstyle-cn",
             "bottom-center",
             "black",
+            "official",
+            None,
             900,
             650,
         )
@@ -1406,6 +1486,9 @@ mod tests {
         let output = std::env::var_os("LUNA_WATERMARK_QA_OUTPUT")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("target/step179-original-frame.png"));
+        let moment_preset = std::env::var("LUNA_WATERMARK_QA_MOMENT_PRESET")
+            .unwrap_or_else(|_| "official".to_string());
+        let moment_image = std::env::var_os("LUNA_WATERMARK_QA_MOMENT_IMAGE").map(PathBuf::from);
         let metadata = read_frame_metadata(&input);
         assert_eq!(metadata.aperture.as_deref(), Some("F/2.0"));
         assert_eq!(metadata.exposure.as_deref(), Some("1/800"));
@@ -1419,6 +1502,8 @@ mod tests {
             position: "bottom-center".to_string(),
             style: "luna-ultra-zstyle-cn".to_string(),
             frame_background: "black".to_string(),
+            moment_preset,
+            moment_image,
         })
         .unwrap();
     }
@@ -1433,15 +1518,17 @@ mod tests {
             iso: Some("ISO416".to_string()),
             timestamp: Some("18-Jun-2026 20:08 UTC+08:00".to_string()),
         };
-        let rendered = render_zstyle_frame(source.clone(), style, &metadata, "black").unwrap();
+        let rendered =
+            render_zstyle_frame(source.clone(), style, &metadata, "black", "official", None)
+                .unwrap();
         assert_eq!((rendered.width(), rendered.height()), (1719, 1911));
         if std::env::var_os("LUNA_WATERMARK_QA").is_some() {
             rendered.save("target/step178-frame-black.png").unwrap();
-            render_zstyle_frame(source.clone(), style, &metadata, "white")
+            render_zstyle_frame(source.clone(), style, &metadata, "white", "official", None)
                 .unwrap()
                 .save("target/step178-frame-white.png")
                 .unwrap();
-            render_zstyle_frame(source, style, &metadata, "photo-gradient")
+            render_zstyle_frame(source, style, &metadata, "photo-gradient", "official", None)
                 .unwrap()
                 .save("target/step178-frame-gradient.png")
                 .unwrap();
@@ -1457,8 +1544,15 @@ mod tests {
     fn white_frame_uses_a_light_background_and_dark_foreground() {
         let style = style_for("luna-ultra-zstyle-cn").unwrap();
         let source = RgbaImage::from_pixel(1600, 900, Rgba([32, 64, 96, 255]));
-        let rendered =
-            render_zstyle_frame(source, style, &FrameMetadata::default(), "white").unwrap();
+        let rendered = render_zstyle_frame(
+            source,
+            style,
+            &FrameMetadata::default(),
+            "white",
+            "official",
+            None,
+        )
+        .unwrap();
         assert_eq!(*rendered.get_pixel(0, 0), Rgba([244, 244, 242, 255]));
         assert_eq!(
             resolve_frame_background(
@@ -1484,6 +1578,33 @@ mod tests {
         assert_eq!(first.start, second.start);
         assert_eq!(first.end, second.end);
         assert_ne!(first.start, first.end);
+    }
+
+    #[test]
+    fn loads_builtin_and_custom_moment_images() {
+        let (preset, fit_both_dimensions) =
+            load_moment_image("shenshen-concert", None, [255, 255, 255]).unwrap();
+        assert!(fit_both_dimensions);
+        assert!(preset.pixels().any(|pixel| {
+            pixel[2] > 150 && pixel[2] > pixel[0].saturating_add(40) && pixel[3] == 255
+        }));
+
+        let custom_path = PathBuf::from("target/custom-moment-test.png");
+        std::fs::create_dir_all("target").unwrap();
+        let mut custom = RgbaImage::from_pixel(40, 20, Rgba([0, 0, 0, 0]));
+        custom.put_pixel(20, 10, Rgba([220, 40, 80, 180]));
+        custom.save(&custom_path).unwrap();
+        let (loaded, fit_both_dimensions) =
+            load_moment_image("custom", Some(&custom_path), [255, 255, 255]).unwrap();
+        assert!(fit_both_dimensions);
+        assert_eq!(*loaded.get_pixel(20, 10), Rgba([220, 40, 80, 180]));
+        let _ = std::fs::remove_file(custom_path);
+    }
+
+    #[test]
+    fn moment_images_fit_inside_the_official_slot() {
+        assert_eq!(fit_inside(1080, 608, 720, 300), (533, 300));
+        assert_eq!(fit_inside(100, 100, 720, 300), (300, 300));
     }
 
     fn test_image_paths(label: &str) -> (PathBuf, PathBuf) {

@@ -733,6 +733,8 @@ impl AppState {
             position: self.wm_position.clone(),
             style: "luna-ultra-cn".to_string(),
             frame_background: "black".to_string(),
+            moment_preset: "official".to_string(),
+            moment_image: None,
         };
         self.log.push("开始：导出水印".to_string());
         self.jobs.spawn(move || {

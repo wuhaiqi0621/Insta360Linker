@@ -41,3 +41,18 @@ This file records repository-level operations so another model or developer can 
 - Re-ran the watermark suite after tracking and aperture-format changes: 15 tests passed and 0 failed.
 - Generated and visually checked `target/beihaibei-frame-preview-v4.png`; it shows `F/2.0  1/800  ISO161` and `26-Jun-2026 16:45 UTC+08:00` with the wider tracking.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `34BAA3FBBCF9B8AE526896C70C4BB4B792122CEB0671E2E3D78B3F53500515D6`.
+
+## 2026-08-07 - Luna Moment presets and custom image
+
+- Added a daily-use Luna Moment selector to the outer-frame watermark UI with `官方 Luna Moment`, `深深的巡演` and `自定义图片` choices.
+- Added a native image picker for custom PNG/JPEG/WebP files, a restore-default command, persisted selection, and immediate real-preview refresh.
+- Connected `moment_preset` and optional `moment_image` through WebView IPC, preview rendering and final export.
+- Preserved custom/preset image color and alpha; only the official Luna Moment asset follows the selected frame foreground color.
+- Added bounded aspect-fit behavior so wide or tall custom images remain inside the official Moment slot and cannot overlap metadata.
+- Copied the user-provided Xiaohongshu image into `assets/moment_presets/shenshen-concert.jpg` and embedded it into the application; SHA-256 is `DD891AD62591866FA4DB80F76779465A0318FE5DABFAC8373DAD3AA9D0A555F7`.
+- Added tests for the built-in preset's blue color, custom PNG transparency and Moment slot fitting.
+- Real-render QA showed the concert artwork's small caption needed more room, so color/custom Moment images may use up to 40% of the footer height while remaining above the metadata block.
+- Verified the inline frontend JavaScript with `node --check`.
+- Ran the complete `html_app` suite: 50 tests passed, 0 failed and 4 hardware/external-image tests remained explicitly ignored.
+- Real-rendered the built-in preset against the Luna original as `target/shenshen-moment-preview-v2.png` and visually confirmed color, size, centering and metadata clearance.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `D88B1EC45664941947050448B5091234E083DE5A5CFC04347DF68C774E151780`.

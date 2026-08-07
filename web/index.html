@@ -447,6 +447,8 @@
     .form-group { margin-bottom: 15px; }
     .form-label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 600; }
     .input-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+    .moment-picker { margin-top: 8px; }
+    .moment-reset { min-height: 28px; margin-top: 5px; padding-inline: 0; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .range-row { display: grid; grid-template-columns: minmax(0, 1fr) 58px; gap: 10px; align-items: center; }
     input[type="range"] { width: 100%; accent-color: var(--blue); }
@@ -1068,6 +1070,19 @@
                 <div id="wmBackgroundGroup" class="form-group" hidden>
                   <span class="form-label">外框背景</span>
                   <div id="wmBackgrounds" class="watermark-background-list" role="radiogroup" aria-label="外框背景"></div>
+                </div>
+                <div id="wmMomentGroup" class="form-group" hidden>
+                  <label class="form-label" for="wmMomentPreset">Luna Moment 图片</label>
+                  <select id="wmMomentPreset" class="field">
+                    <option value="official">官方 Luna Moment</option>
+                    <option value="shenshen-concert">深深的巡演</option>
+                    <option value="custom">自定义图片</option>
+                  </select>
+                  <div id="wmCustomMomentRow" class="input-action moment-picker" hidden>
+                    <input id="wmMomentImage" class="field" placeholder="请选择 PNG、JPEG 或 WebP 图片" readonly>
+                    <button id="pickMomentImage" class="button">选择</button>
+                  </div>
+                  <button id="resetMomentImage" class="button subtle moment-reset" type="button" hidden>恢复官方图片</button>
                 </div>
                 <div class="form-footer"><button id="exportWatermark" class="button primary">导出水印文件</button></div>
               </div>
@@ -2073,6 +2088,14 @@
       return $("wmBackgrounds").querySelector(".watermark-background-option.is-selected")?.dataset.id || "black";
     }
 
+    function selectedMomentPreset() {
+      return $("wmMomentPreset").value || "official";
+    }
+
+    function selectedMomentImage() {
+      return $("wmMomentImage").value.trim();
+    }
+
     function setWatermarkPreviewState(message, loading = false) {
       const root = $("watermarkPreview");
       const image = $("watermarkPreviewImage");
@@ -2092,6 +2115,11 @@
         setWatermarkPreviewState("选择照片或视频后显示真实水印效果");
         return;
       }
+      if (selectedMomentPreset() === "custom" && !selectedMomentImage()) {
+        state.watermarkPreviewRequestId = 0;
+        setWatermarkPreviewState("请选择自定义 Luna Moment 图片");
+        return;
+      }
       state.watermarkPreviewRequestId = -1;
       setWatermarkPreviewState("正在生成真实水印预览", true);
       state.watermarkPreviewTimer = setTimeout(() => {
@@ -2099,7 +2127,9 @@
           input,
           style: $("wmStyle").value || "luna-ultra-cn",
           position: $("wmPosition").value || "bottom-center",
-          frame_background: selectedFrameBackground()
+          frame_background: selectedFrameBackground(),
+          moment_preset: selectedMomentPreset(),
+          moment_image: selectedMomentImage() || null
         });
       }, 160);
     }
@@ -2139,6 +2169,11 @@
       $("wmPositionGroup").hidden = fixedPosition;
       $("wmFixedPositionGroup").hidden = !fixedPosition;
       $("wmBackgroundGroup").hidden = style?.kind !== "frame" || mediaKind === "video";
+      const showMoment = style?.kind === "frame" && mediaKind !== "video";
+      const momentPreset = selectedMomentPreset();
+      $("wmMomentGroup").hidden = !showMoment;
+      $("wmCustomMomentRow").hidden = !showMoment || momentPreset !== "custom";
+      $("resetMomentImage").hidden = !showMoment || momentPreset === "official";
       scheduleWatermarkPreview();
     }
 
@@ -2408,6 +2443,12 @@
           }
         } else if (res.command === "pick_watermark_output") {
           if (data.path) $("wmOutput").value = data.path;
+        } else if (res.command === "pick_moment_image") {
+          if (data.path) {
+            $("wmMomentImage").value = data.path;
+            try { localStorage.setItem("lunaMomentImage", data.path); } catch (_) {}
+            syncWatermarkUi();
+          }
         } else if (res.command === "watermark_styles") {
           renderStyles(data || []);
         } else if (res.command === "watermark_frame_backgrounds") {
@@ -2668,9 +2709,23 @@
 
     $("pickMedia").addEventListener("click", () => send("pick_media_file"));
     $("pickOutput").addEventListener("click", () => send("pick_watermark_output"));
+    $("pickMomentImage").addEventListener("click", () => send("pick_moment_image"));
     $("wmInput").addEventListener("change", syncWatermarkUi);
     $("wmStyle").addEventListener("change", syncWatermarkUi);
     $("wmPosition").addEventListener("change", scheduleWatermarkPreview);
+    $("wmMomentPreset").addEventListener("change", () => {
+      try { localStorage.setItem("lunaMomentPreset", selectedMomentPreset()); } catch (_) {}
+      syncWatermarkUi();
+    });
+    $("resetMomentImage").addEventListener("click", () => {
+      $("wmMomentPreset").value = "official";
+      $("wmMomentImage").value = "";
+      try {
+        localStorage.removeItem("lunaMomentPreset");
+        localStorage.removeItem("lunaMomentImage");
+      } catch (_) {}
+      syncWatermarkUi();
+    });
     $("exportWatermark").addEventListener("click", () => {
       const input = $("wmInput").value.trim();
       const output = $("wmOutput").value.trim();
@@ -2682,12 +2737,20 @@
         showToast("外框水印仅支持照片", true);
         return;
       }
+      if (selectedWatermarkStyle()?.kind === "frame"
+          && selectedMomentPreset() === "custom"
+          && !selectedMomentImage()) {
+        showToast("请先选择自定义 Luna Moment 图片", true);
+        return;
+      }
       send("watermark", {
         input,
         output,
         style: $("wmStyle").value,
         position: $("wmPosition").value,
-        frame_background: selectedFrameBackground()
+        frame_background: selectedFrameBackground(),
+        moment_preset: selectedMomentPreset(),
+        moment_image: selectedMomentImage() || null
       });
     });
 
@@ -2731,6 +2794,15 @@
       if ($("deleteConfirm").classList.contains("open") && !state.busy.has("delete_media")) closeDeleteConfirm();
       else closePreview();
     });
+
+    try {
+      const savedMomentPreset = localStorage.getItem("lunaMomentPreset");
+      const savedMomentImage = localStorage.getItem("lunaMomentImage");
+      if (["official", "shenshen-concert", "custom"].includes(savedMomentPreset)) {
+        $("wmMomentPreset").value = savedMomentPreset;
+      }
+      if (savedMomentImage) $("wmMomentImage").value = savedMomentImage;
+    } catch (_) {}
 
     renderMedia();
     syncVideoProfileControls();

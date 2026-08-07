@@ -240,6 +240,10 @@ struct WatermarkPayload {
     style: Option<String>,
 
     frame_background: Option<String>,
+
+    moment_preset: Option<String>,
+
+    moment_image: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,6 +255,10 @@ struct WatermarkPreviewPayload {
     style: Option<String>,
 
     frame_background: Option<String>,
+
+    moment_preset: Option<String>,
+
+    moment_image: Option<String>,
 }
 
 #[cfg(target_os = "windows")]
@@ -1245,6 +1253,15 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
                 frame_background: payload
                     .frame_background
                     .unwrap_or_else(|| "black".to_string()),
+
+                moment_preset: payload
+                    .moment_preset
+                    .unwrap_or_else(|| "official".to_string()),
+
+                moment_image: payload
+                    .moment_image
+                    .filter(|path| !path.trim().is_empty())
+                    .map(Into::into),
             };
 
             adapters::watermark::apply(&options)?;
@@ -1266,11 +1283,20 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
             let frame_background = payload
                 .frame_background
                 .unwrap_or_else(|| "black".to_string());
+            let moment_image = payload
+                .moment_image
+                .as_deref()
+                .map(str::trim)
+                .filter(|path| !path.is_empty())
+                .map(std::path::Path::new);
+            let moment_preset = payload.moment_preset.as_deref().unwrap_or("official");
             let preview = adapters::watermark::preview(
                 std::path::Path::new(&payload.input),
                 &style,
                 &payload.position,
                 &frame_background,
+                moment_preset,
+                moment_image,
                 900,
                 650,
             )?;
@@ -1283,6 +1309,13 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
         "pick_media_file" => Ok(json!({
             "path": rfd::FileDialog::new()
                 .add_filter("\u{7167}\u{7247}\u{548c}\u{89c6}\u{9891}", &["jpg", "jpeg", "png", "webp", "mp4", "mov", "mkv", "avi", "m4v"])
+                .pick_file()
+                .map(|path| path.display().to_string())
+        })),
+
+        "pick_moment_image" => Ok(json!({
+            "path": rfd::FileDialog::new()
+                .add_filter("图片", &["png", "jpg", "jpeg", "webp"])
                 .pick_file()
                 .map(|path| path.display().to_string())
         })),
