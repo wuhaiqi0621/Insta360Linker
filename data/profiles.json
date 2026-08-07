@@ -1,0 +1,590 @@
+{
+  "z03": {
+    "basic": {
+      "project_name": "Z03",
+      "device_type": "Insta360 Luna Ultra",
+      "display_name": "Insta360 Luna Ultra",
+      "short_display_name": "Luna Ultra",
+      "server_name": "z03",
+      "product_code": "BT",
+      "device_series": "Luna",
+      "device_variety": "camera",
+      "ucd2": true,
+      "connection_channels": [
+        "wifi",
+        "usb",
+        "bluetooth"
+      ],
+      "multicolor": [
+        {
+          "regular_expression": "^.{3}[BD].*",
+          "color": "white"
+        }
+      ],
+      "camera_support_internal_and_sd_storage": "true",
+      "lens_type_strategy": 1,
+      "bluetooth_name_mapping_key": 4
+    },
+    "appSettingPage": {
+      "need_firmware_description": false,
+      "has_charging_case": true,
+      "camera_settings": [
+        "sdcard",
+        "wifi_pwd"
+      ],
+      "additional_settings": [],
+      "setting_camera_box_image_size": {
+        "width": 15,
+        "height": 14
+      },
+      "setting_camera_image_size": {
+        "width": 14,
+        "height": 14
+      },
+      "minor_firmware_versions": [
+        "camera_firmware_version_title",
+        "remote_controller_firmware_version_title",
+        "gimbal_firmware_version_title"
+      ]
+    },
+    "captureOperation": {
+      "protocol_version": "1",
+      "content_version": "1",
+      "project_name": "Z03",
+      "capture_support_camera_json": true,
+      "camera_enable_highlight_capture_mode_list": [
+        "VIDEO_NORMAL",
+        "VIDEO_PURE",
+        "VIDEO_SLOW_MOTION",
+        "VIDEO_TIMESHIFT",
+        "VIDEO_TIMELAPSE"
+      ],
+      "support_recommended_fps": true,
+      "dark_eis_enable_toast": "capture_dark_eis_enable",
+      "dark_eis_disable_toast": "capture_dark_eis_disable",
+      "dark_eis_tip": "capture_dark_eis_fiest_use_tip",
+      "dark_eis_alert_title": "capture_setting_dark_eis",
+      "dark_eis_alert_desc": "capture_enable_dark_eis_dialog_description",
+      "enable_face_metering_statistics": true,
+      "enable_zoom_statistics": true,
+      "enable_low_light_statistics": true,
+      "enable_stop_photo_statistics": true,
+      "enable_stop_video_statistics": true,
+      "camera_support_timeshift_speed_when_recording": true,
+      "disable_anti_shake": true,
+      "camera_support_gps_at_out_flow_state": true,
+      "camera_support_sync_grid_mask": true,
+      "ui_json_directory_name": "z",
+      "camera_support_auxiliary_line": true,
+      "camera_support_assistive_grid": true,
+      "go_battery_icon_width": 20,
+      "go_battery_icon_height": 20,
+      "camera_capture_video_min_battery_level": 5,
+      "camera_support_get_free_space_api": true,
+      "enable_visual_effect_view_when_undamage_zoom": true,
+      "enable_get_remaining_time": true,
+      "enable_photo_format_in_camera": true,
+      "camera_lens_mode_name_list": {
+        "WIDE": "WideAngleZ03"
+      },
+      "camera_support_anti_shake": true,
+      "capture_timelapse_support_count_view_arrow_style": true,
+      "capture_support_count_view": true,
+      "capture_video_timeshift_support_timelapse_count_view": false,
+      "is_refetch_photo_options_by_switch_sub_mode": true,
+      "support_aipl_photo_capture": true,
+      "capture_resolution_ratio_primary": true
+    },
+    "capturePreview": {
+      "enable_camera_preview_json": true,
+      "protocol_version": "1",
+      "content_version": "1",
+      "adjust_rotate": {
+        "default": 270,
+        "front": 180
+      },
+      "enable_new_camera_posture": true,
+      "should_restart_preview_when_params_change": false,
+      "enable_preview_in_time_shift_capture": true,
+      "support_panini": true,
+      "vertical_rotation_angle": 0,
+      "need_stop_preview_when_timeshift": true,
+      "enable_rollling_shutter": true,
+      "support_update_iframe": false,
+      "should_use_offset_v3": true,
+      "adjust_rotate_android": {
+        "default": 270,
+        "front": 180
+      },
+      "use_single_lens_preview_calibration_on_multi_lens": true,
+      "default_preview_ratio": {
+        "PHOTO_GIMBAL_PANO": [
+          4,
+          3
+        ],
+        "default": [
+          -1,
+          -1
+        ]
+      }
+    },
+    "connection": {
+      "connection_timeout": {
+        "device_found": 60,
+        "set_cloud_result": 50,
+        "wifi_connect": 300
+      },
+      "connection_check_steps": [
+        "enable_live_streaming_check"
+      ],
+      "device_support_weak_up": true,
+      "connection_authorization_desc": "connect_camera_authorization_description",
+      "should_reauthorize_after_change_wifi_password": true,
+      "device_support_send_authorization_id": true,
+      "enable_connection_in_qc": true,
+      "device_has_charging_box": true,
+      "is_has_charging_box": true,
+      "no_restart_wifi_after_change_country": true,
+      "connection_total_time": 20,
+      "is_nfc_serial_number_crc_check": true
+    },
+    "exportSetting": {
+      "isDeafualtPhotoCopyExport": true,
+      "isDeafualtVideoCopyExport": true,
+      "use_file_except_fps": true,
+      "is_zstyle_frame_watermark": true
+    },
+    "help": {
+      "help_page_settings": [
+        "cameraInfoGuide",
+        "connectGuide"
+      ],
+      "device_info_step": [
+        "tutorial_step_info_operation_oner_luna_1",
+        "tutorial_step_info_operation_oner_luna_2",
+        "tutorial_step_info_operation_oner_luna_3"
+      ],
+      "device_info_title": "tutorial_step_info_title_luna_ultra"
+    },
+    "ibeacon": {
+      "support_sync_download": true,
+      "sync_download_major_and_minor": {
+        "major": 5,
+        "minor": 1
+      },
+      "support_receive_share_poster": true,
+      "receive_share_poster_major_and_minor": {
+        "major": 5,
+        "minor": 2
+      }
+    },
+    "netProv": {
+      "support_coexistence_ap_sta": false,
+      "ap_sta_coexistence_min_version": ""
+    },
+    "stationLive": {
+      "min_version_sta_live_stream": "1.2.26",
+      "minimum_firmware_version_support_live_stream": "v1.2.26"
+    },
+    "upgrade": {
+      "upgrade_firmware_countdown": 180,
+      "minimum_firmware_version": "v0.0.0",
+      "force_upgrade_min_firmware_version": "v0.9.0",
+      "is_need_battery_upgrade": true,
+      "upgrade_min_battery_level": 25,
+      "charging_box_upgrade_min_battery_level": 25,
+      "has_charging_case": true,
+      "is_need_get_ota_path": true,
+      "has_firmware_minor_version": true,
+      "upgrade_low_battery_description": "firmware_upgrade_battery_low_desc_new_2_luna",
+      "upgrade_low_battery_description_ios": "firmware_upgrade_%d_battery_low_desc_luna",
+      "upgrade_uploading_description": "camera_firmwareudgrade_warning_tips",
+      "upgrade_charge_box_exception_description": "camera_incabin_turnon_luna_ultra",
+      "upgrade_charge_box_exception_title": "alert_ic_firmware_z03_failed_subtitle",
+      "firmware_upgrade_upgrade_success_title": "firmware_upgrade_upgrade_success_title_z0",
+      "firmware_upgrade_dialog_install_connect_camera": "firmware_upgrade_dialog_install_connect_camera_z0"
+    },
+    "manifest": {
+      "protocol_version": "1.0.0",
+      "device_type": "Insta360 Luna Ultra",
+      "business_modules": {
+        "appSettingPage": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "appSettingPage"
+        },
+        "basic": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "basic"
+        },
+        "captureOperation": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "captureOperation"
+        },
+        "capturePreview": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "capturePreview"
+        },
+        "connection": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "connection"
+        },
+        "help": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "help"
+        },
+        "ibeacon": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "ibeacon"
+        },
+        "netProv": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "netProv"
+        },
+        "stationLive": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "stationLive"
+        },
+        "liveActivity": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "liveActivity"
+        },
+        "upgrade": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "upgrade"
+        },
+        "exportSetting": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "exportSetting"
+        }
+      }
+    }
+  },
+  "rxTRC": {
+    "basic": {
+      "project_name": "TRCRX",
+      "device_type": "Insta360 TRC RX",
+      "display_name": "Insta360 TRC RX",
+      "short_display_name": "Insta360 Mic Pro RX",
+      "server_name": "trc_rx",
+      "product_code": "",
+      "device_series": "TRC",
+      "device_variety": "accessories",
+      "connection_channels": [
+        "usb",
+        "bluetooth"
+      ],
+      "multicolor": [],
+      "bluetooth_name_mapping_key": 3
+    },
+    "appSettingPage": {
+      "need_firmware_description": false,
+      "has_charging_case": false,
+      "camera_settings": [],
+      "additional_settings": []
+    },
+    "captureOperation": {
+      "protocol_version": "1",
+      "content_version": "1"
+    },
+    "capturePreview": {
+      "protocol_version": "1",
+      "content_version": "1",
+      "enable_preview_in_time_shift_capture": true,
+      "use_single_lens_preview_calibration_on_multi_lens": false
+    },
+    "connection": {
+      "connection_timeout": {
+        "device_found": 60,
+        "set_cloud_result": 50,
+        "wifi_connect": 300
+      },
+      "connection_authorization_desc": "click_button_in_device_confirm_connection",
+      "connection_support_show_reauthorize_tip_after_change_wifi_password": true,
+      "device_support_connection_in_qc": true,
+      "connection_total_time": 5,
+      "last_connect_device_content_desc": "trc_rx_connect_guide",
+      "ble_connect_error_tips": "connect_error_tips_socket"
+    },
+    "exportSetting": {
+      "isDeafualtPhotoCopyExport": false,
+      "isDeafualtVideoCopyExport": false
+    },
+    "help": {
+      "help_page_settings": [
+        "cameraInfoGuide",
+        "connectGuide"
+      ],
+      "device_info_step": [
+        "tutorial_step_info_operation_fmg_1"
+      ],
+      "device_info_title": "tutorial_step_info_title_fmg"
+    },
+    "ibeacon": {
+      "support_flow_quick_connect": false,
+      "flow_quick_connect_major_and_minor": {}
+    },
+    "netProv": {
+      "support_net_prov": false,
+      "support_coexistence_ap_sta": false,
+      "ap_sta_coexistence_min_version": ""
+    },
+    "stationLive": {
+      "support_sta_live_stream": false,
+      "min_version_sta_live_stream": ""
+    },
+    "upgrade": {
+      "upgrade_firmware_countdown": 50,
+      "force_upgrade_min_firmware_version": "v0.0.0",
+      "upgrade_requires_battery": false,
+      "upgrade_min_battery_level": 25,
+      "upgrade_mtu_size": 220,
+      "install_firmware_description": "trc_rx_firmware_upgrade_install_tips",
+      "upgrade_low_battery_description": "firmware_upgrade_battery_low_desc_trc",
+      "upgrade_low_battery_description_ios": "firmware_upgrade_%d_battery_low_desc_trc",
+      "upgrade_uploading_description": "camera_firmwareudgrade_warning_tips"
+    },
+    "manifest": {
+      "protocol_version": "1.0.0",
+      "device_type": "Insta360 TRC RX",
+      "business_modules": {
+        "appSettingPage": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "appSettingPage"
+        },
+        "basic": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "basic"
+        },
+        "captureOperation": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "captureOperation"
+        },
+        "capturePreview": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "capturePreview"
+        },
+        "connection": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "connection"
+        },
+        "help": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "help"
+        },
+        "ibeacon": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "ibeacon"
+        },
+        "netProv": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "netProv"
+        },
+        "stationLive": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "stationLive"
+        },
+        "liveActivity": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "liveActivity"
+        },
+        "upgrade": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "upgrade"
+        },
+        "cloud": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "cloud"
+        },
+        "exportSetting": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "exportSetting"
+        }
+      }
+    }
+  },
+  "txTRC": {
+    "basic": {
+      "project_name": "TRCTX",
+      "device_type": "Insta360 TRC TX",
+      "display_name": "Insta360 TRC TX",
+      "short_display_name": "Insta360 Mic Pro TX",
+      "server_name": "trc_tx",
+      "product_code": "BZE",
+      "device_series": "TRC",
+      "device_variety": "accessories",
+      "connection_channels": [
+        "bluetooth"
+      ],
+      "multicolor": [
+        {
+          "regular_expression": "^.{3}B.*",
+          "color": "white"
+        }
+      ],
+      "bluetooth_name_mapping_key": 2
+    },
+    "appSettingPage": {
+      "need_firmware_description": false,
+      "has_charging_case": false,
+      "camera_settings": [],
+      "additional_settings": []
+    },
+    "captureOperation": {
+      "protocol_version": "1",
+      "content_version": "1"
+    },
+    "capturePreview": {
+      "protocol_version": "1",
+      "content_version": "1",
+      "enable_preview_in_time_shift_capture": true,
+      "use_single_lens_preview_calibration_on_multi_lens": false
+    },
+    "connection": {
+      "connection_timeout": {
+        "device_found": 60,
+        "set_cloud_result": 50,
+        "wifi_connect": 300
+      },
+      "connection_authorization_desc": "click_power_button_to_confirm_connection",
+      "connection_support_show_reauthorize_tip_after_change_wifi_password": true,
+      "device_support_connection_in_qc": true,
+      "connection_total_time": 5,
+      "last_connect_device_content_desc": "trc_tx_connect_guide",
+      "ble_connect_error_tips": "tap_connection_help_to_troubleshoot"
+    },
+    "exportSetting": {
+      "isDeafualtPhotoCopyExport": false,
+      "isDeafualtVideoCopyExport": false
+    },
+    "help": {
+      "help_page_settings": [
+        "cameraInfoGuide",
+        "connectGuide"
+      ],
+      "device_info_step": [
+        "tutorial_step_info_operation_fmg_1"
+      ],
+      "device_info_title": "tutorial_step_info_title_fmg"
+    },
+    "ibeacon": {
+      "support_flow_quick_connect": false,
+      "flow_quick_connect_major_and_minor": {}
+    },
+    "netProv": {
+      "support_net_prov": false,
+      "support_coexistence_ap_sta": false,
+      "ap_sta_coexistence_min_version": ""
+    },
+    "stationLive": {
+      "support_sta_live_stream": false,
+      "min_version_sta_live_stream": ""
+    },
+    "upgrade": {
+      "upgrade_firmware_countdown": 50,
+      "force_upgrade_min_firmware_version": "v0.0.0",
+      "upgrade_requires_battery": false,
+      "upgrade_min_battery_level": 25,
+      "upgrade_mtu_size": 220,
+      "install_firmware_description": "trc_tx_firmware_upgrade_install_tips",
+      "upgrade_low_battery_description": "firmware_upgrade_battery_low_desc_trc",
+      "upgrade_low_battery_description_ios": "firmware_upgrade_%d_battery_low_desc_trc",
+      "upgrade_uploading_description": "camera_firmwareudgrade_warning_tips"
+    },
+    "manifest": {
+      "protocol_version": "1.0.0",
+      "device_type": "Insta360 TRC TX",
+      "business_modules": {
+        "appSettingPage": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "appSettingPage"
+        },
+        "basic": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "basic"
+        },
+        "captureOperation": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "captureOperation"
+        },
+        "capturePreview": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "capturePreview"
+        },
+        "connection": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "connection"
+        },
+        "help": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "help"
+        },
+        "ibeacon": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "ibeacon"
+        },
+        "netProv": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "netProv"
+        },
+        "stationLive": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "stationLive"
+        },
+        "liveActivity": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "liveActivity"
+        },
+        "upgrade": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "upgrade"
+        },
+        "cloud": {
+          "enable": false,
+          "version": "1.0.0",
+          "directory": "cloud"
+        },
+        "exportSetting": {
+          "enable": true,
+          "version": "1.0.0",
+          "directory": "exportSetting"
+        }
+      }
+    }
+  }
+}

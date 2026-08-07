@@ -1,0 +1,29 @@
+* text=auto
+
+*.rs text eol=crlf
+*.toml text eol=crlf
+*.lock text eol=crlf
+*.html text eol=crlf
+*.css text eol=crlf
+*.js text eol=crlf
+*.json text eol=crlf
+*.md text eol=crlf
+*.py text eol=crlf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.txt text eol=crlf
+*.csv text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.exe binary
+*.dll binary
+*.dex binary
+*.so binary
+*.bin binary
+*.h265 binary

@@ -1,0 +1,42 @@
+# Rust build outputs
+/target/
+/target_*/
+/target-*/
+**/target/
+
+# Packaged Windows binaries and runtime state
+/LunaStudio.exe
+/LunaVirtualCamera.dll
+/LunaStudio.exe.WebView2/
+/data/gallery-thumbnails/
+*.pdb
+*.ilk
+*.exp
+
+# FFmpeg is a redistributable runtime dependency, not project source
+/assets/ffmpeg/*.exe
+
+# APK extraction and generated reverse-engineering artifacts
+/reverse_apk/classes.dex
+/reverse_apk/assets/
+/reverse_apk/extracted_streams/
+/reverse_apk/lib/
+/reverse_apk/reconstructed_dex/
+/reverse_apk/references/
+/reverse_apk/validation/
+/reverse_apk/vm_heap_dumps/
+/reverse_apk/pcap_analysis/**/live-preview.h265
+/reverse_apk/pcap_analysis/**/ucd2_frames.json
+/reverse_apk/pcap_analysis/**/ucd2_timeline.csv
+*.pcap
+*.pcapng
+
+# Python, editor and operating-system caches
+**/__pycache__/
+*.py[cod]
+.idea/
+.vscode/
+.vs/
+.DS_Store
+Thumbs.db
+*.log

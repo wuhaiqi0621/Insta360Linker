@@ -1,0 +1,1288 @@
+{
+  "source": "C:\\Users\\H!Mooo\\Downloads\\PCAPdroid_28_7月_15_48_50.pcap",
+  "camera": "192.168.42.1",
+  "pcap": {
+    "major": 2,
+    "minor": 4,
+    "snaplen": 32768,
+    "linktype": 101
+  },
+  "packet_count": 42509,
+  "first_time": "2026-07-28T15:49:00.254+08:00",
+  "last_time": "2026-07-28T15:51:27.104+08:00",
+  "ucd2_frame_count": 6735,
+  "http_request_count": 101,
+  "ucd2_frame_type_counts": [
+    {
+      "direction": "camera_to_phone",
+      "frame_type": "01",
+      "count": 6081
+    },
+    {
+      "direction": "camera_to_phone",
+      "frame_type": "04",
+      "count": 184
+    },
+    {
+      "direction": "camera_to_phone",
+      "frame_type": "05",
+      "count": 236
+    },
+    {
+      "direction": "phone_to_camera",
+      "frame_type": "04",
+      "count": 139
+    },
+    {
+      "direction": "phone_to_camera",
+      "frame_type": "05",
+      "count": 95
+    }
+  ],
+  "flow_stats": [
+    {
+      "flow": "10.215.173.1:44402<->192.168.42.1:6666",
+      "direction": "phone_to_camera",
+      "packets": 7817,
+      "payload_bytes": 8060
+    },
+    {
+      "flow": "10.215.173.1:44402<->192.168.42.1:6666",
+      "direction": "camera_to_phone",
+      "packets": 13637,
+      "payload_bytes": 57167468
+    },
+    {
+      "flow": "10.215.173.1:56696<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 218
+    },
+    {
+      "flow": "10.215.173.1:56696<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 261
+    },
+    {
+      "flow": "10.215.173.1:56700<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 522,
+      "payload_bytes": 213
+    },
+    {
+      "flow": "10.215.173.1:56700<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 1367,
+      "payload_bytes": 5973070
+    },
+    {
+      "flow": "10.215.173.1:56710<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 237
+    },
+    {
+      "flow": "10.215.173.1:56710<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 269
+    },
+    {
+      "flow": "10.215.173.1:56714<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 6,
+      "payload_bytes": 226
+    },
+    {
+      "flow": "10.215.173.1:56714<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6,
+      "payload_bytes": 3858
+    },
+    {
+      "flow": "10.215.173.1:56732<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56732<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6,
+      "payload_bytes": 21720
+    },
+    {
+      "flow": "10.215.173.1:56736<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 34,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56736<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 46,
+      "payload_bytes": 215752
+    },
+    {
+      "flow": "10.215.173.1:56740<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:56740<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 2274
+    },
+    {
+      "flow": "10.215.173.1:56744<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 27,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56744<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 40,
+      "payload_bytes": 228784
+    },
+    {
+      "flow": "10.215.173.1:56748<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 6,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:56748<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 3858
+    },
+    {
+      "flow": "10.215.173.1:56752<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 30,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56752<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 35,
+      "payload_bytes": 232776
+    },
+    {
+      "flow": "10.215.173.1:56756<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 39,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56756<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 87,
+      "payload_bytes": 751464
+    },
+    {
+      "flow": "10.215.173.1:56760<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 35,
+      "payload_bytes": 178
+    },
+    {
+      "flow": "10.215.173.1:56760<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 40,
+      "payload_bytes": 291048
+    },
+    {
+      "flow": "10.215.173.1:56764<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 32,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56764<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 48,
+      "payload_bytes": 327248
+    },
+    {
+      "flow": "10.215.173.1:56768<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56768<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:56772<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56772<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 32,
+      "payload_bytes": 217200
+    },
+    {
+      "flow": "10.215.173.1:56776<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:56776<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 2289
+    },
+    {
+      "flow": "10.215.173.1:56780<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 36,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56780<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 130,
+      "payload_bytes": 448880
+    },
+    {
+      "flow": "10.215.173.1:56784<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:56784<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 3873
+    },
+    {
+      "flow": "10.215.173.1:56788<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56788<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 33,
+      "payload_bytes": 227336
+    },
+    {
+      "flow": "10.215.173.1:56792<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 22,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56792<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 22,
+      "payload_bytes": 120008
+    },
+    {
+      "flow": "10.215.173.1:56796<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 28,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56796<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 112,
+      "payload_bytes": 646560
+    },
+    {
+      "flow": "10.215.173.1:56800<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56800<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 142,
+      "payload_bytes": 718320
+    },
+    {
+      "flow": "10.215.173.1:56808<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56808<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:56812<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 28,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56812<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 27,
+      "payload_bytes": 163448
+    },
+    {
+      "flow": "10.215.173.1:56816<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 183
+    },
+    {
+      "flow": "10.215.173.1:56816<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 2281
+    },
+    {
+      "flow": "10.215.173.1:56820<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 24,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56820<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 65,
+      "payload_bytes": 555160
+    },
+    {
+      "flow": "10.215.173.1:56824<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 183
+    },
+    {
+      "flow": "10.215.173.1:56824<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 3867
+    },
+    {
+      "flow": "10.215.173.1:56828<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 27,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56828<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 42,
+      "payload_bytes": 154936
+    },
+    {
+      "flow": "10.215.173.1:56832<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 6,
+      "payload_bytes": 183
+    },
+    {
+      "flow": "10.215.173.1:56832<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:56836<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 38,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56836<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 76,
+      "payload_bytes": 578744
+    },
+    {
+      "flow": "10.215.173.1:56840<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 183
+    },
+    {
+      "flow": "10.215.173.1:56840<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 78,
+      "payload_bytes": 418904
+    },
+    {
+      "flow": "10.215.173.1:56844<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 179
+    },
+    {
+      "flow": "10.215.173.1:56844<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 59,
+      "payload_bytes": 396752
+    },
+    {
+      "flow": "10.215.173.1:56848<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 26,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56848<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 53,
+      "payload_bytes": 348616
+    },
+    {
+      "flow": "10.215.173.1:56852<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 17,
+      "payload_bytes": 183
+    },
+    {
+      "flow": "10.215.173.1:56852<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 16,
+      "payload_bytes": 101360
+    },
+    {
+      "flow": "10.215.173.1:56856<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 6,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56856<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:56860<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 39,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56860<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 65,
+      "payload_bytes": 220096
+    },
+    {
+      "flow": "10.215.173.1:56864<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56864<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 2292
+    },
+    {
+      "flow": "10.215.173.1:56868<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56868<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 33,
+      "payload_bytes": 213600
+    },
+    {
+      "flow": "10.215.173.1:56872<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56872<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 3878
+    },
+    {
+      "flow": "10.215.173.1:56876<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 26,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56876<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 27,
+      "payload_bytes": 181000
+    },
+    {
+      "flow": "10.215.173.1:56880<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 9,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56880<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 8,
+      "payload_bytes": 43440
+    },
+    {
+      "flow": "10.215.173.1:56884<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 34,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56884<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 112,
+      "payload_bytes": 508248
+    },
+    {
+      "flow": "10.215.173.1:56888<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 28,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56888<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 43,
+      "payload_bytes": 217200
+    },
+    {
+      "flow": "10.215.173.1:56892<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 10,
+      "payload_bytes": 178
+    },
+    {
+      "flow": "10.215.173.1:56892<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 10,
+      "payload_bytes": 44888
+    },
+    {
+      "flow": "10.215.173.1:56896<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 27,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56896<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 62,
+      "payload_bytes": 247608
+    },
+    {
+      "flow": "10.215.173.1:56900<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 38,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56900<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 173,
+      "payload_bytes": 580592
+    },
+    {
+      "flow": "10.215.173.1:56904<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 40,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56904<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 201,
+      "payload_bytes": 671536
+    },
+    {
+      "flow": "10.215.173.1:56908<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 34,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56908<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 222,
+      "payload_bytes": 786792
+    },
+    {
+      "flow": "10.215.173.1:56920<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56920<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 7,
+      "payload_bytes": 17200
+    },
+    {
+      "flow": "10.215.173.1:56922<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56922<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 30,
+      "payload_bytes": 182096
+    },
+    {
+      "flow": "10.215.173.1:56928<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 26,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56928<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 82,
+      "payload_bytes": 477840
+    },
+    {
+      "flow": "10.215.173.1:56930<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 32,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56930<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 34,
+      "payload_bytes": 234950
+    },
+    {
+      "flow": "10.215.173.1:56936<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 30,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56936<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 117,
+      "payload_bytes": 660400
+    },
+    {
+      "flow": "10.215.173.1:56940<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 28,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56940<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 28,
+      "payload_bytes": 234950
+    },
+    {
+      "flow": "10.215.173.1:56944<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 26,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56944<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 113,
+      "payload_bytes": 560024
+    },
+    {
+      "flow": "10.215.173.1:56946<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 29,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56946<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 32,
+      "payload_bytes": 234950
+    },
+    {
+      "flow": "10.215.173.1:56952<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 182
+    },
+    {
+      "flow": "10.215.173.1:56952<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 60,
+      "payload_bytes": 362000
+    },
+    {
+      "flow": "10.215.173.1:56956<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 30,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56956<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 88,
+      "payload_bytes": 743376
+    },
+    {
+      "flow": "10.215.173.1:56960<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56960<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 39,
+      "payload_bytes": 234950
+    },
+    {
+      "flow": "10.215.173.1:56962<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 29,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56962<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 86,
+      "payload_bytes": 663496
+    },
+    {
+      "flow": "10.215.173.1:56970<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 21,
+      "payload_bytes": 178
+    },
+    {
+      "flow": "10.215.173.1:56970<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 20,
+      "payload_bytes": 101360
+    },
+    {
+      "flow": "10.215.173.1:56974<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 28,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56974<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 78,
+      "payload_bytes": 671408
+    },
+    {
+      "flow": "10.215.173.1:56978<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 30,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56978<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 29,
+      "payload_bytes": 234950
+    },
+    {
+      "flow": "10.215.173.1:56980<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 29,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56980<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 69,
+      "payload_bytes": 630432
+    },
+    {
+      "flow": "10.215.173.1:56986<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 38,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56986<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 81,
+      "payload_bytes": 729296
+    },
+    {
+      "flow": "10.215.173.1:56990<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 27,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:56990<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 95,
+      "payload_bytes": 687832
+    },
+    {
+      "flow": "10.215.173.1:56994<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56994<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6,
+      "payload_bytes": 8688
+    },
+    {
+      "flow": "10.215.173.1:56998<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 45,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:56998<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 60,
+      "payload_bytes": 226282
+    },
+    {
+      "flow": "10.215.173.1:57002<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:57002<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 98,
+      "payload_bytes": 782448
+    },
+    {
+      "flow": "10.215.173.1:57006<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 32,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57006<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 32,
+      "payload_bytes": 226282
+    },
+    {
+      "flow": "10.215.173.1:57010<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 42,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57010<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 150,
+      "payload_bytes": 1346584
+    },
+    {
+      "flow": "10.215.173.1:57014<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 29,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57014<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 28,
+      "payload_bytes": 205616
+    },
+    {
+      "flow": "10.215.173.1:57020<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57020<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 29,
+      "payload_bytes": 226282
+    },
+    {
+      "flow": "10.215.173.1:57024<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 29,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57024<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 94,
+      "payload_bytes": 767928
+    },
+    {
+      "flow": "10.215.173.1:57028<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 20,
+      "payload_bytes": 178
+    },
+    {
+      "flow": "10.215.173.1:57028<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 19,
+      "payload_bytes": 107152
+    },
+    {
+      "flow": "10.215.173.1:57032<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 33,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57032<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 111,
+      "payload_bytes": 866600
+    },
+    {
+      "flow": "10.215.173.1:57036<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 7,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57036<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 7,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:57040<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 45,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57040<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 48,
+      "payload_bytes": 187259
+    },
+    {
+      "flow": "10.215.173.1:57044<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 149,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57044<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 988,
+      "payload_bytes": 4760352
+    },
+    {
+      "flow": "10.215.173.1:57048<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 26,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57048<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 26,
+      "payload_bytes": 187259
+    },
+    {
+      "flow": "10.215.173.1:57052<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 39,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57052<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 100,
+      "payload_bytes": 877760
+    },
+    {
+      "flow": "10.215.173.1:57056<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 34,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57056<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 35,
+      "payload_bytes": 161824
+    },
+    {
+      "flow": "10.215.173.1:57060<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 40,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57060<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 190,
+      "payload_bytes": 878136
+    },
+    {
+      "flow": "10.215.173.1:57064<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 16,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57064<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 15,
+      "payload_bytes": 101360
+    },
+    {
+      "flow": "10.215.173.1:57068<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 166,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57068<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 1210,
+      "payload_bytes": 4722632
+    },
+    {
+      "flow": "10.215.173.1:57072<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57072<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 33,
+      "payload_bytes": 226282
+    },
+    {
+      "flow": "10.215.173.1:57076<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 44,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57076<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 44,
+      "payload_bytes": 187259
+    },
+    {
+      "flow": "10.215.173.1:57080<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 36,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:57080<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 36,
+      "payload_bytes": 187212
+    },
+    {
+      "flow": "10.215.173.1:57084<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 41,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57084<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 148,
+      "payload_bytes": 957936
+    },
+    {
+      "flow": "10.215.173.1:57088<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 31,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57088<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 57,
+      "payload_bytes": 187259
+    },
+    {
+      "flow": "10.215.173.1:57092<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 61,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57092<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 167,
+      "payload_bytes": 1337584
+    },
+    {
+      "flow": "10.215.173.1:57096<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 42,
+      "payload_bytes": 181
+    },
+    {
+      "flow": "10.215.173.1:57096<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 161,
+      "payload_bytes": 895920
+    },
+    {
+      "flow": "10.215.173.1:57100<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 6,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57100<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 14480
+    },
+    {
+      "flow": "10.215.173.1:57104<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 52,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57104<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 66,
+      "payload_bytes": 174837
+    },
+    {
+      "flow": "10.215.173.1:57108<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 43,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57108<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 52,
+      "payload_bytes": 174837
+    },
+    {
+      "flow": "10.215.173.1:57112<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 44,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57112<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 57,
+      "payload_bytes": 134664
+    },
+    {
+      "flow": "10.215.173.1:57118<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 37,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57118<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 37,
+      "payload_bytes": 112944
+    },
+    {
+      "flow": "10.215.173.1:57122<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 59,
+      "payload_bytes": 175
+    },
+    {
+      "flow": "10.215.173.1:57122<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 79,
+      "payload_bytes": 174837
+    },
+    {
+      "flow": "10.215.173.1:57126<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 38,
+      "payload_bytes": 176
+    },
+    {
+      "flow": "10.215.173.1:57126<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 114,
+      "payload_bytes": 174790
+    },
+    {
+      "flow": "10.215.173.1:57130<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 5,
+      "payload_bytes": 218
+    },
+    {
+      "flow": "10.215.173.1:57130<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 5,
+      "payload_bytes": 276
+    },
+    {
+      "flow": "10.215.173.1:57134<->192.168.42.1:80",
+      "direction": "phone_to_camera",
+      "packets": 2294,
+      "payload_bytes": 214
+    },
+    {
+      "flow": "10.215.173.1:57134<->192.168.42.1:80",
+      "direction": "camera_to_phone",
+      "packets": 6046,
+      "payload_bytes": 14391334
+    }
+  ],
+  "parser_diagnostics": [
+    {
+      "flow": "10.215.173.1:44402<->192.168.42.1:6666",
+      "direction": "phone_to_camera",
+      "frames": 234,
+      "gaps": 0,
+      "retransmitted_bytes": 0,
+      "discarded_prefix_bytes": 0,
+      "remaining_buffer_bytes": 0
+    },
+    {
+      "flow": "10.215.173.1:44402<->192.168.42.1:6666",
+      "direction": "camera_to_phone",
+      "frames": 6501,
+      "gaps": 0,
+      "retransmitted_bytes": 0,
+      "discarded_prefix_bytes": 0,
+      "remaining_buffer_bytes": 0
+    }
+  ]
+}
