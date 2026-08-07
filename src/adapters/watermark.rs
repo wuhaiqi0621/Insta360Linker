@@ -1041,6 +1041,16 @@ fn runtime_asset_candidates(file: &str) -> Vec<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             candidates.push(parent.join("assets").join("apk_watermark").join(file));
+            if cfg!(target_os = "macos") {
+                if let Some(contents_dir) = parent.parent() {
+                    candidates.push(
+                        contents_dir
+                            .join("Resources")
+                            .join("apk_watermark")
+                            .join(file),
+                    );
+                }
+            }
         }
     }
     candidates.push(PathBuf::from("assets").join("apk_watermark").join(file));

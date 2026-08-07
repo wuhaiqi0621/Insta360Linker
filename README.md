@@ -83,7 +83,7 @@ cargo build --release --bin html_app --target-dir target_daily
 ./build_macos.sh
 ```
 
-应用产物为 `dist/Luna Studio.app`。构建脚本会按当前 Mac 架构下载 FFmpeg 并打包，用于实时监看、视频缩略图和视频水印。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留应用内 HEVC 实时监看。
+应用产物为 `dist/Luna Studio.app`。构建脚本会按当前 Mac 架构下载 FFmpeg，并将 FFmpeg 与官方水印资源一起打包进应用。FFmpeg 用于实时监看、视频缩略图和视频水印；官方 PNG 资源用于照片与视频水印。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留应用内 HEVC 实时监看。
 
 ## 关键结构
 

@@ -8,6 +8,7 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 FFMPEG_BINARY="$PROJECT_DIR/assets/ffmpeg/ffmpeg"
+WATERMARK_RESOURCES="$PROJECT_DIR/assets/apk_watermark"
 
 if [ ! -x "$FFMPEG_BINARY" ]; then
     case "$(uname -m)" in
@@ -30,11 +31,12 @@ fi
 cd "$PROJECT_DIR"
 cargo build --release --bin html_app
 
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/ffmpeg"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/ffmpeg" "$RESOURCES_DIR/apk_watermark"
 cp "$PROJECT_DIR/target/release/html_app" "$MACOS_DIR/$APP_NAME"
 cp "$PROJECT_DIR/macos/Info.plist" "$CONTENTS_DIR/Info.plist"
 
 cp "$FFMPEG_BINARY" "$RESOURCES_DIR/ffmpeg/ffmpeg"
+cp -R "$WATERMARK_RESOURCES/." "$RESOURCES_DIR/apk_watermark/"
 
 chmod +x "$MACOS_DIR/$APP_NAME"
 codesign --force --deep --sign - "$APP_DIR"

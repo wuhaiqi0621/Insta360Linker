@@ -113,3 +113,12 @@ This file records repository-level operations so another model or developer can 
 - Ran the complete `html_app` test suite on macOS: 45 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.
 - The freshly cloned checkout exposed an unrelated CRLF/LF-only modification in `reverse_apk/tools/ashield_unpack_cluster_disasm.txt`; it was intentionally excluded from this change.
 - Maintenance policy requested by the repository owner: every future code or build update must be recorded by appending to this existing Markdown log as part of the same change.
+
+## 2026-08-07 - Bundle official watermark resources on macOS
+
+- Fixed the initial macOS package, which bundled FFmpeg but omitted the runtime-loaded official watermark PNG resources.
+- Updated `build_macos.sh` to copy the complete `assets/apk_watermark` resource set into `Luna Studio.app/Contents/Resources/apk_watermark`.
+- Updated the watermark resource loader to resolve official assets from the macOS application bundle's `Contents/Resources` directory while retaining the existing Windows and development-tree lookup paths.
+- Updated the macOS build documentation to state that both FFmpeg and official watermark resources are packaged into the application.
+- Rebuilt the Apple Silicon application and verified 39 official watermark resource files inside the signed bundle, including all four Luna Ultra image/video PNG files required by the published styles.
+- Re-ran the complete macOS `html_app` suite: 45 tests passed, 0 failed and 2 hardware/external-input tests remained explicitly ignored.
