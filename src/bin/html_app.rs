@@ -406,6 +406,12 @@ fn mica_class_script(enabled: bool) -> &'static str {
     }
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct PickWatermarkOutputPayload {
+    #[serde(default)]
+    input: String,
+}
+
 fn bundled_ffmpeg_path() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let executable_dir = executable.parent()?;
@@ -1342,15 +1348,42 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
                 .map(|path| path.display().to_string())
         })),
 
-        "pick_watermark_output" => Ok(json!({
-            "path": rfd::FileDialog::new()
-                .set_file_name("Luna_watermarked.jpg")
-                .add_filter("JPEG \u{56fe}\u{7247}", &["jpg", "jpeg"])
-                .add_filter("PNG \u{56fe}\u{7247}", &["png"])
-                .add_filter("MP4 \u{89c6}\u{9891}", &["mp4"])
-                .save_file()
-                .map(|path| path.display().to_string())
-        })),
+        "pick_watermark_output" => {
+            let payload = serde_json::from_value::<PickWatermarkOutputPayload>(req.payload)
+                .unwrap_or_default();
+            let input = std::path::Path::new(&payload.input);
+            let stem = input
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .filter(|value| !value.is_empty())
+                .unwrap_or("Luna");
+            let extension = input
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("jpg")
+                .to_ascii_lowercase();
+            let video = matches!(extension.as_str(), "mp4" | "mov" | "mkv" | "avi" | "m4v");
+            let output_extension = if video {
+                "mp4"
+            } else if matches!(extension.as_str(), "png" | "webp") {
+                extension.as_str()
+            } else {
+                "jpg"
+            };
+            let file_name = format!("{stem}_watermarked.{output_extension}");
+            let dialog = rfd::FileDialog::new().set_file_name(file_name);
+            let dialog = if video {
+                dialog.add_filter("MP4 \u{89c6}\u{9891}", &["mp4"])
+            } else {
+                dialog
+                    .add_filter("JPEG \u{56fe}\u{7247}", &["jpg", "jpeg"])
+                    .add_filter("PNG \u{56fe}\u{7247}", &["png"])
+                    .add_filter("WebP \u{56fe}\u{7247}", &["webp"])
+            };
+            Ok(json!({
+                "path": dialog.save_file().map(|path| path.display().to_string())
+            }))
+        }
 
         "pick_download_dir" => Ok(json!({
             "path": rfd::FileDialog::new()

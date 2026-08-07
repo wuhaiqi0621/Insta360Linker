@@ -122,3 +122,18 @@ This file records repository-level operations so another model or developer can 
 - Updated the macOS build documentation to state that both FFmpeg and official watermark resources are packaged into the application.
 - Rebuilt the Apple Silicon application and verified 39 official watermark resource files inside the signed bundle, including all four Luna Ultra image/video PNG files required by the published styles.
 - Re-ran the complete macOS `html_app` suite: 45 tests passed, 0 failed and 2 hardware/external-input tests remained explicitly ignored.
+
+## 2026-08-07 - Final-action export destinations and Android gallery saving
+
+- Removed the desktop media-library download-location control and watermark output-path field so users configure the export first and choose a destination only after clicking the final download/export button.
+- Changed desktop batch downloads to open the folder picker from `下载所选`, and changed watermark export to open a native save dialog only from `导出水印文件`.
+- Desktop watermark save dialogs now derive the suggested filename and output format from the selected source: MP4 for video, PNG/WebP when applicable, and JPEG for other photos.
+- Changed Android batch downloads and watermark exports to use unique app-cache paths internally without showing a destination picker.
+- Added Android MediaStore publishing for Android 10 and newer, saving completed photos and videos directly under the system gallery's `DCIM/Insta360Linker` collection and removing the successfully published temporary files.
+- Added the Android 8-9 compatibility path using the public DCIM album, media scanning and the legacy storage permission limited to API 28.
+- Updated Android action labels to `保存所选` and `保存到相册`, and changed completion messages/results to report system-gallery saves instead of private app paths.
+- Updated the root and Android README files to document the delayed desktop picker and direct mobile gallery behavior.
+- Verified the inline frontend JavaScript syntax and parsed `MainActivity.java` successfully with a Java syntax parser.
+- Ran the complete macOS `html_app` suite: 45 tests passed, 0 failed and 2 hardware/external-input tests remained explicitly ignored.
+- Rebuilt `dist/Luna Studio.app`; strict deep code-signature verification and Info.plist validation passed, and all 39 official watermark resource files remain bundled.
+- Android Gradle/APK compilation was not run on this Mac because it has no Java runtime or Android SDK; the existing Windows Android toolchain remains required for the final APK build.

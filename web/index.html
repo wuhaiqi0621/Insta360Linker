@@ -887,7 +887,6 @@
             <div class="library-head">
               <div><h2>相机媒体库</h2><p id="mediaSummary">尚未读取相册</p></div>
               <div class="library-actions">
-                <button id="chooseDownloadDir" class="button">下载位置</button>
                 <button id="selectVisible" class="button">全选当前</button>
                 <button id="clearSelection" class="button subtle">取消选择</button>
                 <button id="batchDownload" class="button primary" disabled>下载所选</button>
@@ -909,7 +908,6 @@
                 <option value="desc">最新优先</option>
                 <option value="asc">最早优先</option>
               </select>
-              <div id="downloadDirLabel" class="folder-summary">默认保存到应用目录下的 downloads</div>
               <div id="densitySegments" class="segmented">
                 <button class="segment active" data-density="comfortable" title="舒适视图">大</button>
                 <button class="segment" data-density="medium" title="紧凑视图">中</button>
@@ -1046,10 +1044,6 @@
                   <div class="input-action"><input id="wmInput" class="field" placeholder="请选择照片或视频"><button id="pickMedia" class="button">选择</button></div>
                 </div>
                 <div class="form-group">
-                  <label class="form-label" for="wmOutput">导出位置</label>
-                  <div class="input-action"><input id="wmOutput" class="field" placeholder="请选择导出文件"><button id="pickOutput" class="button">选择</button></div>
-                </div>
-                <div class="form-group">
                   <label class="form-label" for="wmStyle">水印样式</label>
                   <select id="wmStyle" class="field"></select>
                 </div>
@@ -1172,7 +1166,8 @@
       filter: "all",
       sort: "desc",
       density: "comfortable",
-      downloadDir: "",
+      pendingDownloadFiles: null,
+      pendingWatermarkExport: null,
       busy: new Set(),
       toastTimer: null,
       controlReady: false,
@@ -1351,7 +1346,10 @@
     function updateBusyState() {
       const connecting = state.busy.has("detect") || state.busy.has("list_media");
       const controlConnecting = state.busy.has("camera_control_connect");
-      const downloading = state.busy.has("download_batch");
+      const choosingDownloadDestination = state.busy.has("pick_download_dir");
+      const downloading = state.busy.has("download_batch") || choosingDownloadDestination;
+      const exportingWatermark = state.busy.has("watermark") || state.busy.has("pick_watermark_output");
+      const mobileHost = document.documentElement.classList.contains("android-host");
       const deleting = state.busy.has("delete_media");
       const scanning = state.busy.has("scan_ble");
       const controlBusy = ["camera_control_connect", "camera_set_capture_mode", "camera_set_zoom", "camera_set_video_profile", "camera_take_photo", "camera_start_record", "camera_stop_record", "camera_start_preview", "camera_stop_preview", "virtual_camera_start", "virtual_camera_stop", "delete_media"].some(command => state.busy.has(command));
@@ -1364,7 +1362,14 @@
       document.querySelectorAll("[data-storage]").forEach(button => { button.disabled = connecting; });
       const selectionCount = selectedFiles().length;
       $("batchDownload").disabled = downloading || deleting || selectionCount === 0;
-      $("batchDownload").textContent = downloading ? "正在下载…" : selectionCount ? `下载所选 (${selectionCount})` : "下载所选";
+      const downloadAction = mobileHost ? "保存所选" : "下载所选";
+      $("batchDownload").textContent = downloading
+        ? (mobileHost ? "正在保存…" : "正在下载…")
+        : selectionCount ? `${downloadAction} (${selectionCount})` : downloadAction;
+      $("exportWatermark").disabled = exportingWatermark;
+      $("exportWatermark").textContent = exportingWatermark
+        ? (mobileHost ? "正在保存…" : "正在导出…")
+        : (mobileHost ? "保存到相册" : "导出水印文件");
       $("confirmDelete").disabled = deleting;
       $("confirmDelete").textContent = deleting ? "正在删除…" : "永久删除";
       $("scanMic").disabled = scanning;
@@ -2050,7 +2055,9 @@
 
     function downloadSelected() {
       const files = selectedFiles().map(file => ({ url: file.url, date: file.date || "" }));
-      if (files.length) send("download_batch", { host: host(), files, output_dir: state.downloadDir || null });
+      if (!files.length) return;
+      state.pendingDownloadFiles = files;
+      send("pick_download_dir");
     }
 
     function requestDeleteSelected() {
@@ -2432,9 +2439,10 @@
           showToast(data.message || `已删除 ${deletedCount} 个素材`);
           setTimeout(loadMedia, 700);
         } else if (res.command === "pick_download_dir") {
-          if (data.path) {
-            state.downloadDir = data.path;
-            $("downloadDirLabel").textContent = data.path;
+          const files = state.pendingDownloadFiles;
+          state.pendingDownloadFiles = null;
+          if (data.path && files?.length) {
+            send("download_batch", { host: host(), files, output_dir: data.path });
           }
         } else if (res.command === "pick_media_file") {
           if (data.path) {
@@ -2442,7 +2450,11 @@
             syncWatermarkUi();
           }
         } else if (res.command === "pick_watermark_output") {
-          if (data.path) $("wmOutput").value = data.path;
+          const exportPayload = state.pendingWatermarkExport;
+          state.pendingWatermarkExport = null;
+          if (data.path && exportPayload) {
+            send("watermark", { ...exportPayload, output: data.path });
+          }
         } else if (res.command === "pick_moment_image") {
           if (data.path) {
             $("wmMomentImage").value = data.path;
@@ -2661,7 +2673,6 @@
 
     $("reloadMedia").addEventListener("click", loadMedia);
     $("refreshTop").addEventListener("click", loadMedia);
-    $("chooseDownloadDir").addEventListener("click", () => send("pick_download_dir"));
     $("selectVisible").addEventListener("click", () => {
       for (const file of visibleMedia()) state.selected.add(file.url);
       syncSelectionUi();
@@ -2708,7 +2719,6 @@
     });
 
     $("pickMedia").addEventListener("click", () => send("pick_media_file"));
-    $("pickOutput").addEventListener("click", () => send("pick_watermark_output"));
     $("pickMomentImage").addEventListener("click", () => send("pick_moment_image"));
     $("wmInput").addEventListener("change", syncWatermarkUi);
     $("wmStyle").addEventListener("change", syncWatermarkUi);
@@ -2728,9 +2738,8 @@
     });
     $("exportWatermark").addEventListener("click", () => {
       const input = $("wmInput").value.trim();
-      const output = $("wmOutput").value.trim();
-      if (!input || !output) {
-        showToast("请先选择原始文件和导出位置", true);
+      if (!input) {
+        showToast("请先选择原始文件", true);
         return;
       }
       if (watermarkMediaKind() === "video" && selectedWatermarkStyle()?.kind === "frame") {
@@ -2743,15 +2752,15 @@
         showToast("请先选择自定义 Luna Moment 图片", true);
         return;
       }
-      send("watermark", {
+      state.pendingWatermarkExport = {
         input,
-        output,
         style: $("wmStyle").value,
         position: $("wmPosition").value,
         frame_background: selectedFrameBackground(),
         moment_preset: selectedMomentPreset(),
         moment_image: selectedMomentImage() || null
-      });
+      };
+      send("pick_watermark_output", { input });
     });
 
     $("scanMic").addEventListener("click", () => send("scan_ble"));

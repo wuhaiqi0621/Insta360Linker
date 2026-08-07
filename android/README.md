@@ -7,9 +7,9 @@ The Android app uses a native Java WebView host and the same HTML UI as the Wind
 - Luna Ultra Wi-Fi detection and persistent UCD2 session.
 - Internal storage and SD card media listing.
 - Photo and video thumbnails using Android decoders.
-- Multi-select download and delete.
+- Multi-select save and delete. Saving does not open a destination picker; completed photos and videos are published directly to the system gallery under `DCIM/Insta360Linker`.
 - Photo/video mode switching, zoom, recording profile, shutter and gimbal controls.
-- Photo watermark preview/export, including official and custom Luna Moment artwork.
+- Photo/video watermark preview and export, including official and custom Luna Moment artwork. Final exports are also saved directly to the system gallery.
 - Native Android BLE scan for Mic Pro devices.
 
 Windows virtual-camera registration is intentionally unavailable on Android. Live HEVC preview is not enabled until the UCD2 stream is connected to an Android MediaCodec decoder.
