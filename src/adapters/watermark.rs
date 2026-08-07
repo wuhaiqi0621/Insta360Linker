@@ -16,7 +16,7 @@ const IMAGE_WATERMARK_CONFIG: &str =
 const FRAME_WATERMARK_CONFIG: &str =
     include_str!("../../assets/apk_watermark/Frame_Watermark_Config_Table.txt");
 const FRAME_TEXT_FONT: &[u8] =
-    include_bytes!("../../assets/apk_watermark/FrameMetadata-SemiBold.ttf");
+    include_bytes!("../../assets/apk_watermark/BeihaibeiSC-Regular.ttf");
 
 #[derive(Clone)]
 pub struct WatermarkOptions {
