@@ -1,0 +1,1 @@
+-keep class studio.luna.linker.NativeBridge { *; }

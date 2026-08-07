@@ -85,12 +85,18 @@ This file records repository-level operations so another model or developer can 
 - Real-rendered and visually checked `target/shenshen-official-height-preview.png`.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `B56B9397589011A5435A8A8A3FC0CB774AF786CF6AF28926AFD2A8D7AF683120`.
 
-## 2026-08-07 - Match custom Moment height to official Luna Moment
+## 2026-08-07 - Native Android ARM64 application
 
-- Replaced the temporary 40%-of-footer height rule with the official APK Luna Moment's actual rendered height as the sizing reference.
-- The renderer now loads the official `749x259` Moment asset, applies the APK `moment_width_ratio`, derives its output height, and gives that exact height to colored presets and custom images.
-- Width remains proportional to each selected image; the canvas-width fallback remains for exceptionally wide custom artwork.
-- Added a regression test proving the reference output height is `124px` on the test canvas and that the `1080x478` Shenshen preset receives the same `124px` height.
-- Ran the watermark suite: 17 tests passed, 0 failed and 1 external-image test remained ignored in the regular suite.
-- Real-rendered and visually checked `target/shenshen-official-height-preview.png` against the Luna original.
-- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `B56B9397589011A5435A8A8A3FC0CB774AF786CF6AF28926AFD2A8D7AF683120`.
+- Added `android/`, a native Java WebView application using package id `studio.luna.linker`, minimum Android 8.0 (API 26), target/compile API 36 and an adaptive launcher icon.
+- Split Cargo dependencies by target so the Windows WebView2, Win32 virtual-camera, desktop BLE and file-dialog crates are not compiled into Android.
+- Added `src/android_bridge.rs`, an ARM64 JNI bridge that reuses the APK/PCAP-derived Rust UCD2 implementation for Luna detection, persistent media/control sessions, internal/SD media listing, deletion, mode switching, zoom, video profiles, photo/record commands, gimbal movement/speed and batch downloads.
+- Reused the Rust watermark renderer on Android for photo preview/export, including official APK assets, frame colors, the Shenshen preset and custom Luna Moment images.
+- Added Android-native file import/output locations, sampled image thumbnails, MediaMetadataRetriever video thumbnails, media scanning and a five-second Mic Pro BLE scan.
+- Added Android local-network, Wi-Fi and Bluetooth permissions. Cleartext traffic is intentionally enabled because Luna Ultra serves its local media over `http://192.168.42.1`.
+- Android hides Windows-only virtual-camera controls and the live-preview surface. UCD2 HEVC live preview is explicitly deferred until an Android MediaCodec pipeline is connected; capture and gimbal controls remain available without preview.
+- Added `android/build_android.ps1`, the Gradle wrapper and `android/README.md`. The build script compiles Rust for `aarch64-linux-android`, packages the JNI `.so`, builds the APK and copies it to the repository root.
+- Installed the portable build chain only under `F:\AndroidToolchain`: Temurin JDK 17.0.20, Android command-line tools 15859902, API/Build Tools 36, NDK 28.2.13676358, Gradle 9.4.1 and Rust 1.97.1 with `aarch64-linux-android`.
+- Verified `cargo build --lib --release --target aarch64-linux-android --locked`, `lintDebug`, `assembleDebug`, Rust formatting and the complete Windows `html_app` suite (50 passed, 0 failed, 4 ignored).
+- Verified the APK contains `lib/arm64-v8a/libluna_mic_rust.so`, `assets/web/index.html` and the APK watermark assets. JNI exports and native dependencies were checked with NDK `llvm-nm`/`llvm-readelf`.
+- No Android device was attached to ADB, so installation and hardware session checks remain pending. Static APK verification and v2 debug-signature verification passed.
+- Final debug APK: `F:\Insta360onWin\Insta360Linker-android-arm64-debug.apk`, 8,327,872 bytes, SHA-256 `EE29C5BE758F823A5D370B82638A56365303CB828B2DC5AFEBC31939C676DDAB`.
