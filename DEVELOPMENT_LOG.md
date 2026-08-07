@@ -75,6 +75,16 @@ This file records repository-level operations so another model or developer can 
 - Real-rendered `target/shenshen-fixed-height-preview.png` against the Luna original and visually confirmed the wider centered title artwork does not overlap metadata.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `AFB0A239979C55CF5560AD92A5D39C9203CF1F2C230377906605D7AB2C3EDBF8`.
 
+## 2026-08-07 - Match preset height to official Luna Moment
+
+- Replaced the temporary 40%-of-footer rule with the official APK Luna Moment's actual rendered height as the shared sizing reference.
+- The renderer loads the official `749x259` Moment asset, applies the APK `moment_width_ratio`, then gives the resulting height to built-in colored presets and custom images.
+- Width remains proportional to each image; an exceptionally wide custom image is limited only by the canvas width.
+- Added regression coverage proving the official and Shenshen preset both render at `124px` high on the reference test canvas.
+- Ran the watermark suite: 17 tests passed, 0 failed and 1 external-image test remained ignored in the regular suite.
+- Real-rendered and visually checked `target/shenshen-official-height-preview.png`.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `B56B9397589011A5435A8A8A3FC0CB774AF786CF6AF28926AFD2A8D7AF683120`.
+
 ## 2026-08-07 - Match custom Moment height to official Luna Moment
 
 - Replaced the temporary 40%-of-footer height rule with the official APK Luna Moment's actual rendered height as the sizing reference.
