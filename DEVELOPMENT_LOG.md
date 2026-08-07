@@ -19,3 +19,4 @@ This file records repository-level operations so another model or developer can 
 - Re-ran the staged credential scan; no GitHub token, private-key, API-key or access-token patterns were found.
 - Ran `cargo check --locked --bin html_app`; it completed successfully with existing dead-code warnings only.
 - Final GitHub repository: `https://github.com/wuhaiqi0621/Insta360Linker`.
+- Added the GitHub repository as the local `origin`, pushed the initial source import commit `db60341` to `main`, and configured the local branch to track `origin/main`.
