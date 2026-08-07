@@ -65,3 +65,12 @@ This file records repository-level operations so another model or developer can 
 - Ran the watermark suite after replacement: 17 tests passed, 0 failed and the external-image QA test remained explicitly ignored in the regular suite.
 - Ran the external Luna original QA render with the replacement preset and generated `target/shenshen-titleonly-preview.png`; visually confirmed aspect-fit centering, preserved blue/white artwork and metadata clearance.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `0CDA7645E6C9BE132368A11833D0BF7D021E80A743421AF0092B2041F95A9C5B`.
+
+## 2026-08-07 - Moment preset fixed-height sizing
+
+- Changed colored built-in and custom Luna Moment artwork from width-constrained fitting to a fixed height of 40% of the footer panel; width is now derived from the source aspect ratio.
+- Kept the official APK Luna Moment artwork on its original width-based placement, so the stock style remains unchanged.
+- Added a canvas-width safety fallback only for exceptionally wide custom images.
+- Updated sizing tests and ran the watermark suite: 17 tests passed, 0 failed and 1 external-image test remained ignored in the regular suite.
+- Real-rendered `target/shenshen-fixed-height-preview.png` against the Luna original and visually confirmed the wider centered title artwork does not overlap metadata.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `AFB0A239979C55CF5560AD92A5D39C9203CF1F2C230377906605D7AB2C3EDBF8`.

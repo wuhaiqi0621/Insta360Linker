@@ -560,18 +560,18 @@ fn render_zstyle_footer(
         return Ok(());
     }
 
-    let (mut moment, fit_both_dimensions) =
+    let (mut moment, use_fixed_height) =
         load_moment_image(moment_preset, moment_image, foreground)?;
     let moment_max_width = (frame.width() as f32 * config.moment_width_ratio)
         .round()
         .max(1.0) as u32;
     let moment_max_height = (panel_height as f32 * 0.40).round().max(1.0) as u32;
-    let (moment_width, moment_height) = if fit_both_dimensions {
-        fit_inside(
+    let (moment_width, moment_height) = if use_fixed_height {
+        scale_to_fixed_height(
             moment.width(),
             moment.height(),
-            moment_max_width,
             moment_max_height,
+            frame.width(),
         )
     } else {
         (moment_max_width, scaled_height(&moment, moment_max_width))
@@ -647,15 +647,27 @@ fn load_moment_image(
     }
 }
 
-fn fit_inside(width: u32, height: u32, max_width: u32, max_height: u32) -> (u32, u32) {
+fn scale_to_fixed_height(
+    width: u32,
+    height: u32,
+    target_height: u32,
+    canvas_width: u32,
+) -> (u32, u32) {
     let width = width.max(1);
     let height = height.max(1);
-    let scale =
-        (max_width.max(1) as f64 / width as f64).min(max_height.max(1) as f64 / height as f64);
-    (
-        (width as f64 * scale).round().max(1.0) as u32,
-        (height as f64 * scale).round().max(1.0) as u32,
-    )
+    let target_height = target_height.max(1);
+    let scaled_width = (width as f64 * target_height as f64 / height as f64)
+        .round()
+        .max(1.0) as u32;
+    let canvas_width = canvas_width.max(1);
+    if scaled_width <= canvas_width {
+        return (scaled_width, target_height);
+    }
+
+    let scaled_height = (height as f64 * canvas_width as f64 / width as f64)
+        .round()
+        .max(1.0) as u32;
+    (canvas_width, scaled_height)
 }
 
 impl FrameMetadata {
@@ -1602,9 +1614,10 @@ mod tests {
     }
 
     #[test]
-    fn moment_images_fit_inside_the_official_slot() {
-        assert_eq!(fit_inside(1080, 608, 720, 300), (533, 300));
-        assert_eq!(fit_inside(100, 100, 720, 300), (300, 300));
+    fn custom_moment_images_use_fixed_height() {
+        assert_eq!(scale_to_fixed_height(1080, 478, 300, 1719), (678, 300));
+        assert_eq!(scale_to_fixed_height(100, 100, 300, 1719), (300, 300));
+        assert_eq!(scale_to_fixed_height(4000, 100, 300, 1000), (1000, 25));
     }
 
     fn test_image_paths(label: &str) -> (PathBuf, PathBuf) {
