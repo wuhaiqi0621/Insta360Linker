@@ -565,12 +565,14 @@ fn render_zstyle_footer(
     let moment_max_width = (frame.width() as f32 * config.moment_width_ratio)
         .round()
         .max(1.0) as u32;
-    let moment_max_height = (panel_height as f32 * 0.40).round().max(1.0) as u32;
+    let official_moment =
+        image::load_from_memory(&load_runtime_asset("choose_logo_photo_moment.png")?)?.to_rgba8();
+    let official_moment_height = scaled_height(&official_moment, moment_max_width);
     let (moment_width, moment_height) = if use_fixed_height {
         scale_to_fixed_height(
             moment.width(),
             moment.height(),
-            moment_max_height,
+            official_moment_height,
             frame.width(),
         )
     } else {
@@ -1614,10 +1616,26 @@ mod tests {
     }
 
     #[test]
-    fn custom_moment_images_use_fixed_height() {
-        assert_eq!(scale_to_fixed_height(1080, 478, 300, 1719), (678, 300));
-        assert_eq!(scale_to_fixed_height(100, 100, 300, 1719), (300, 300));
-        assert_eq!(scale_to_fixed_height(4000, 100, 300, 1000), (1000, 25));
+    fn custom_moment_images_match_the_official_height() {
+        let official =
+            image::load_from_memory(&load_runtime_asset("choose_logo_photo_moment.png").unwrap())
+                .unwrap()
+                .to_rgba8();
+        assert_eq!((official.width(), official.height()), (749, 259));
+        let official_height = scaled_height(&official, 359);
+        assert_eq!(official_height, 124);
+        assert_eq!(
+            scale_to_fixed_height(1080, 478, official_height, 1719),
+            (280, 124)
+        );
+        assert_eq!(
+            scale_to_fixed_height(100, 100, official_height, 1719),
+            (124, 124)
+        );
+        assert_eq!(
+            scale_to_fixed_height(4000, 100, official_height, 1000),
+            (1000, 25)
+        );
     }
 
     fn test_image_paths(label: &str) -> (PathBuf, PathBuf) {
