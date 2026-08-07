@@ -137,3 +137,9 @@ This file records repository-level operations so another model or developer can 
 - Ran the complete macOS `html_app` suite: 45 tests passed, 0 failed and 2 hardware/external-input tests remained explicitly ignored.
 - Rebuilt `dist/Luna Studio.app`; strict deep code-signature verification and Info.plist validation passed, and all 39 official watermark resource files remain bundled.
 - Android Gradle/APK compilation was not run on this Mac because it has no Java runtime or Android SDK; the existing Windows Android toolchain remains required for the final APK build.
+
+## 2026-08-07 - Native macOS Liquid Glass icon source
+
+- Imported the user-provided `Insta360Linker.icon` Icon Composer package into `macos/Insta360Linker.icon`, preserving its original PNG/SVG layers, default/dark/tinted specializations and Liquid Glass annotations.
+- Added a manually dispatched Xcode 27 workflow that compiles the layered Icon Composer source with Apple's `actool` into the native `Assets.car` runtime catalog and a backward-compatible `Insta360Linker.icns` file.
+- Kept Android launcher resources unchanged as requested; this update is scoped to macOS.
