@@ -17,6 +17,7 @@ const FRAME_WATERMARK_CONFIG: &str =
     include_str!("../../assets/apk_watermark/Frame_Watermark_Config_Table.txt");
 const FRAME_TEXT_FONT: &[u8] = include_bytes!("../../assets/apk_watermark/BeihaibeiSC-Regular.ttf");
 const FRAME_TEXT_SCALE: f32 = 1.16;
+const FRAME_TEXT_TRACKING_RATIO: f32 = 0.045;
 
 #[derive(Clone)]
 pub struct WatermarkOptions {
@@ -601,8 +602,7 @@ fn read_frame_metadata(input: &Path) -> FrameMetadata {
         return FrameMetadata::default();
     };
     FrameMetadata {
-        aperture: exif_rational(&exif, Tag::FNumber)
-            .map(|value| format!("F{:.1}", value.num as f64 / value.denom.max(1) as f64)),
+        aperture: exif_rational(&exif, Tag::FNumber).map(format_aperture),
         exposure: exif_rational(&exif, Tag::ExposureTime)
             .map(format_exposure)
             .filter(|value| !value.is_empty())
@@ -615,6 +615,10 @@ fn read_frame_metadata(input: &Path) -> FrameMetadata {
             exif_ascii(&exif, Tag::OffsetTimeOriginal).as_deref(),
         ),
     }
+}
+
+fn format_aperture(value: exif::Rational) -> String {
+    format!("F/{:.1}", value.num as f64 / value.denom.max(1) as f64)
 }
 
 fn exif_rational(exif: &exif::Exif, tag: Tag) -> Option<exif::Rational> {
@@ -786,13 +790,17 @@ fn rasterize_text(
     let mut caret = 0.0;
     let mut previous = None;
     let mut glyphs = Vec::<Glyph>::new();
-    for character in text.chars() {
+    let mut characters = text.chars().peekable();
+    while let Some(character) = characters.next() {
         let id = scaled.glyph_id(character);
         if let Some(previous) = previous {
             caret += scaled.kern(previous, id);
         }
         glyphs.push(id.with_scale_and_position(scale, point(caret, 0.0)));
         caret += scaled.h_advance(id);
+        if characters.peek().is_some() {
+            caret += size * FRAME_TEXT_TRACKING_RATIO;
+        }
         previous = Some(id);
     }
     let outlined: Vec<_> = glyphs
@@ -1349,6 +1357,10 @@ mod tests {
 
     #[test]
     fn formats_luna_direct_output_metadata() {
+        assert_eq!(
+            format_aperture(exif::Rational { num: 20, denom: 10 }),
+            "F/2.0"
+        );
         let timestamp = format_exif_timestamp(Some("2026:06:18 20:08:37"), Some("+08:00"));
         assert_eq!(timestamp.as_deref(), Some("18-Jun-2026 20:08 UTC+08:00"));
         let timestamp_without_offset = format_exif_timestamp(Some("2026:06:26 16:45:57"), None);
@@ -1395,6 +1407,7 @@ mod tests {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("target/step179-original-frame.png"));
         let metadata = read_frame_metadata(&input);
+        assert_eq!(metadata.aperture.as_deref(), Some("F/2.0"));
         assert_eq!(metadata.exposure.as_deref(), Some("1/800"));
         assert_eq!(
             metadata.timestamp.as_deref(),
@@ -1415,7 +1428,7 @@ mod tests {
         let style = style_for("luna-ultra-zstyle-cn").unwrap();
         let source = RgbaImage::from_pixel(1600, 1200, Rgba([32, 64, 96, 255]));
         let metadata = FrameMetadata {
-            aperture: Some("F2.0".to_string()),
+            aperture: Some("F/2.0".to_string()),
             exposure: Some("1/100".to_string()),
             iso: Some("ISO416".to_string()),
             timestamp: Some("18-Jun-2026 20:08 UTC+08:00".to_string()),

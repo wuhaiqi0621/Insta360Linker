@@ -36,3 +36,8 @@ This file records repository-level operations so another model or developer can 
 - Re-ran the watermark suite after the timezone, weight and size changes: 15 tests passed and 0 failed.
 - Re-ran the external Luna original QA test and generated `target/beihaibei-frame-preview-v2.png`; the rendered timestamp is `26-Jun-2026 16:45 UTC+08:00` and the shutter remains `1/800`.
 - Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `90EAF634D229406B8A88DE9173C0C37E7D6BE54498EA5F1D30598D10AE399F0F`.
+- Follow-up: increased outer-frame metadata character tracking by 4.5% of the rendered font size, while preserving the separate spacing between aperture, shutter and ISO groups.
+- Follow-up: corrected aperture formatting from `F2.0` to the requested photographic notation `F/2.0` and added parser/render test coverage.
+- Re-ran the watermark suite after tracking and aperture-format changes: 15 tests passed and 0 failed.
+- Generated and visually checked `target/beihaibei-frame-preview-v4.png`; it shows `F/2.0  1/800  ISO161` and `26-Jun-2026 16:45 UTC+08:00` with the wider tracking.
+- Rebuilt and replaced the local daily `LunaStudio.exe`; final SHA-256 is `34BAA3FBBCF9B8AE526896C70C4BB4B792122CEB0671E2E3D78B3F53500515D6`.
