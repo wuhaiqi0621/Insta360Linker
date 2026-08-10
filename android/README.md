@@ -14,6 +14,12 @@ The Android app uses a native Java WebView host and the same HTML UI as the Wind
 
 Windows virtual-camera registration is intentionally unavailable on Android. Live HEVC preview is not enabled until the UCD2 stream is connected to an Android MediaCodec decoder.
 
+## Build with GitHub Actions
+
+Run the `Build Android ARM64 APK` workflow manually from the repository Actions page. The Ubuntu job installs Java 17, Android API/Build Tools 36, NDK 28.2.13676358 and the Rust Android ARM64 target, then runs Android Lint and builds a debug-signed APK.
+
+The successful run uploads a 14-day `Insta360Linker-android-arm64-debug` artifact containing the installable APK and `SHA256SUMS.txt`. The workflow also verifies the APK signature and checks that the ARM64 JNI library, Web UI and official watermark resources are packaged.
+
 ## Build on Windows
 
 The checked-in wrapper uses Gradle 9.4.1 and Android Gradle Plugin 9.2.0. The local build script expects JDK 17, Android API/Build Tools 36, NDK 28.2.13676358 and the Rust `aarch64-linux-android` target under `F:\AndroidToolchain` by default.

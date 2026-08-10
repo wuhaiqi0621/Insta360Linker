@@ -77,6 +77,12 @@ cargo build --release --bin html_app --target-dir target_daily
 
 构建产物为 `target_daily/release/html_app.exe`。
 
+### Android
+
+在 GitHub 仓库的 Actions 页面手动运行 `Build Android ARM64 APK`，流程会使用 Java 17、Android API/Build Tools 36、NDK 28.2.13676358 和 Rust `aarch64-linux-android` 目标构建并验证 Debug APK。完成后从运行页面下载 `Insta360Linker-android-arm64-debug` artifact；其中包含 APK 和 `SHA256SUMS.txt`。
+
+本地 Windows 构建方法见 [`android/README.md`](android/README.md)。
+
 ### macOS
 
 需要 Rust 工具链和 Xcode Command Line Tools。在 Apple Silicon 或 Intel Mac 上运行：

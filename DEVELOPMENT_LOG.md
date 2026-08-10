@@ -180,3 +180,8 @@ This file records repository-level operations so another model or developer can 
 - The workflow compiles the shared Rust JNI library for Android API 26, packages it under `lib/arm64-v8a`, runs Android Lint, builds the debug APK and verifies its signature plus embedded JNI, Web UI and official watermark resources.
 - Configured the verified APK and its SHA-256 file as a downloadable `Insta360Linker-android-arm64-debug` artifact with 14-day retention.
 - Initial run `31417450829` proved the Rust/NDK stage works but exposed that the checked-in Unix Gradle wrapper lacked its executable bit; corrected the repository mode before rerunning the workflow.
+- Successful run `31417690489` completed in 2 minutes 55 seconds: Rust JNI compilation, Android Lint, Gradle assembly, APK signature/resource verification and artifact upload all passed.
+- Downloaded the verified artifact to the repository workspace as the ignored local delivery file `Insta360Linker-android-arm64-debug.apk`.
+- Final APK size is 8,348,301 bytes and SHA-256 is `503ca66a82ee975c25059b3d521308e7c4972e286b4bb99e7985935cde22a3be`.
+- Independently tested the downloaded ZIP container with no errors and confirmed `lib/arm64-v8a/libluna_mic_rust.so`, `assets/web/index.html` and the packaged official watermark resource directory are present.
+- Updated the root and Android README files with GitHub Actions build and artifact-download instructions.
