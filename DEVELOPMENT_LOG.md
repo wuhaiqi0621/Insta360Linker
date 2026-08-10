@@ -173,3 +173,10 @@ This file records repository-level operations so another model or developer can 
 - Verified the bundled catalog exposes 87 matching native icon records across `IconGroup`, specular-layer and `Insta360Linker.iconstack` inspection queries.
 - Verified `CFBundleIconName` and `CFBundleIconFile`, strict deep code signing, the arm64 application executable, the arm64 FFmpeg runtime and the 77 MB final bundle.
 - Re-ran the complete macOS `html_app` test suite after the connection fix: 46 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.
+
+## 2026-08-11 - GitHub Actions Android ARM64 build
+
+- Added `.github/workflows/build-android.yml`, a manually dispatched Ubuntu workflow that installs Java 17, Android API/Build Tools 36, NDK 28.2.13676358 and the Rust `aarch64-linux-android` target.
+- The workflow compiles the shared Rust JNI library for Android API 26, packages it under `lib/arm64-v8a`, runs Android Lint, builds the debug APK and verifies its signature plus embedded JNI, Web UI and official watermark resources.
+- Configured the verified APK and its SHA-256 file as a downloadable `Insta360Linker-android-arm64-debug` artifact with 14-day retention.
+- Initial run `31417450829` proved the Rust/NDK stage works but exposed that the checked-in Unix Gradle wrapper lacked its executable bit; corrected the repository mode before rerunning the workflow.
