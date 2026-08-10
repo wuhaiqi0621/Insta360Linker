@@ -154,3 +154,22 @@ This file records repository-level operations so another model or developer can 
 - Surfaced the detailed route error in the application UI, telling the user to connect the camera hotspot and disable a VPN/proxy that takes over local-network traffic.
 - Added subnet regression coverage and updated the root README with the macOS connection requirement.
 - Verified the new route test and `cargo check --bin html_app` on macOS; both passed. Existing dead-code warnings are unchanged.
+
+## 2026-08-07 - Xcode 27 Liquid Glass icon integration
+
+- Committed `.github/workflows/compile-macos-icon.yml` and ran GitHub Actions job `31171392627` on the `xcode-27` runner.
+- Compiled the checked-in Icon Composer package with Xcode 27.0 (`27A5228h`) into `macos/compiled/Assets.car` and the backward-compatible `macos/compiled/Insta360Linker.icns`.
+- Preserved the generated `Assets.json` inspection report beside the compiled files so native icon contents remain auditable without reverse-engineering the binary catalog.
+- Verified that the catalog contains the `Insta360Linker.iconstack`, vector and raster source renditions, dark/light/tinted appearances, layered `IconGroup` records, per-element specular gathering and `LayerHasSpecular` glass highlights.
+- Added `CFBundleIconName=Insta360Linker` so modern macOS resolves the native layered catalog, plus `CFBundleIconFile=Insta360Linker` for the `.icns` fallback.
+- Updated `build_macos.sh` to require and copy both compiled icon resources into `Luna Studio.app/Contents/Resources` before ad-hoc signing.
+- Xcode 27 artifact SHA-256: `Assets.car` is `7d6f5c580c24e3b33722b1e0829f862e3430612edb009fddd154fd22eb2cb27b`; `Insta360Linker.icns` is `42af632f2753876943b50e6500dfb9ecc1a022d2541bd6f17e2267730f6d8949`.
+- Android icon resources remain unchanged as requested.
+
+## 2026-08-11 - Final macOS package verification
+
+- Rebuilt `dist/Luna Studio.app` after integrating the Xcode 27 icon resources and the macOS camera-route fix.
+- Verified the signed application bundle contains byte-identical `Contents/Resources/Assets.car` and `Contents/Resources/Insta360Linker.icns` files with the recorded Xcode 27 artifact hashes.
+- Verified the bundled catalog exposes 87 matching native icon records across `IconGroup`, specular-layer and `Insta360Linker.iconstack` inspection queries.
+- Verified `CFBundleIconName` and `CFBundleIconFile`, strict deep code signing, the arm64 application executable, the arm64 FFmpeg runtime and the 77 MB final bundle.
+- Re-ran the complete macOS `html_app` test suite after the connection fix: 46 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.

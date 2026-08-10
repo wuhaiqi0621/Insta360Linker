@@ -85,7 +85,7 @@ cargo build --release --bin html_app --target-dir target_daily
 ./build_macos.sh
 ```
 
-应用产物为 `dist/Luna Studio.app`。构建脚本会按当前 Mac 架构下载 FFmpeg，并将 FFmpeg 与官方水印资源一起打包进应用。FFmpeg 用于实时监看、视频缩略图和视频水印；官方 PNG 资源用于照片与视频水印。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留应用内 HEVC 实时监看。
+应用产物为 `dist/Luna Studio.app`。构建脚本会按当前 Mac 架构下载 FFmpeg，并将 FFmpeg、官方水印资源以及 Xcode 27 编译的原生 Liquid Glass 图标一起打包进应用。图标的 `Assets.car` 保留 Icon Composer 分层、玻璃高光以及浅色/深色/着色外观，`.icns` 用作旧版系统兼容回退。FFmpeg 用于实时监看、视频缩略图和视频水印；官方 PNG 资源用于照片与视频水印。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留应用内 HEVC 实时监看。
 
 连接 Luna Ultra 前，请先让 Mac 加入相机热点。macOS 版会把相机的 TCP、媒体下载和缩略图请求绑定到与 `192.168.42.1` 同网段的物理网卡，避免 VPN/代理的 `utun` 路由误接管相机地址；找不到正确网卡时，界面会直接提示检查相机 Wi-Fi 和 VPN/代理。
 

@@ -10,6 +10,10 @@
     <string>Luna Studio</string>
     <key>CFBundleIdentifier</key>
     <string>studio.luna.linker</string>
+    <key>CFBundleIconFile</key>
+    <string>Insta360Linker</string>
+    <key>CFBundleIconName</key>
+    <string>Insta360Linker</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
