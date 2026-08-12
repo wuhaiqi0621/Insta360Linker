@@ -93,6 +93,8 @@ cargo build --release --bin Insta360Linker --target-dir target_daily
 
 应用产物为 `dist/Insta360Linker.app`，最低系统版本为 macOS 26。`Contents/MacOS/Insta360Linker` 是完全原生的 SwiftUI 主程序：使用系统 `NavigationSplitView`、`List`、`Toolbar`、`Form`、`GroupBox`、`ControlGroup`、`Picker`、`Slider`、对话框和 AppKit 文件面板。窗口使用稳定的系统背景，由 macOS 自动在侧栏、工具栏、选择态和适合的操作按钮上呈现 Liquid Glass；界面不再用手工玻璃面板堆叠层级，也不使用 WebView。
 
+原生界面使用渐进式显示：未连接相机时隐藏媒体管理和拍摄控制，录像规格只在录像模式出现；水印设置会根据输入文件和官方样式能力过滤，照片外框选项不会出现在视频流程中，外框背景及 Luna Moment 仅在外框水印中显示，自定义图片选择仅在选中自定义 Moment 后出现。
+
 Rust 相机协议、媒体下载、缩略图、实时取景解码、蓝牙和官方水印渲染器以 `Contents/Resources/Insta360LinkerBackend` 包内辅助进程运行，通过逐行 JSON 与 SwiftUI 通信。构建脚本会按当前 Mac 架构下载 FFmpeg，并将 FFmpeg、官方水印资源以及 Xcode 27 编译的原生 Liquid Glass 图标一起打包。图标的 `Assets.car` 保留 Icon Composer 分层、玻璃高光以及浅色/深色/着色外观；Android 和 Windows 使用同一图标工程导出的静态玻璃图。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留 SwiftUI 内 HEVC 实时监看。
 
 连接 Luna Ultra 前，请先让 Mac 加入相机热点，并在“系统设置 > 隐私与安全性 > 本地网络”中允许 Insta360Linker。macOS 版会通过 `IP_BOUND_IF` 把相机的 TCP、媒体下载和缩略图请求绑定到与 `192.168.42.1` 同网段的物理网卡，避免 VPN/代理的 `utun` 路由误接管相机地址；找不到正确网卡或连接被系统拒绝时，界面会显示具体错误。

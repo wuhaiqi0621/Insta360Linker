@@ -65,6 +65,8 @@ struct WatermarkStyleOption: Identifiable, Hashable {
     let kind: String
     let model: String
     let profile: String
+    let imageFile: String?
+    let videoFile: String?
 
     init?(_ json: [String: Any]) {
         guard let id = json["id"] as? String, let label = json["label"] as? String else { return nil }
@@ -73,7 +75,21 @@ struct WatermarkStyleOption: Identifiable, Hashable {
         kind = json["kind"] as? String ?? "mark"
         model = json["model"] as? String ?? "Luna Ultra"
         profile = json["profile"] as? String ?? ""
+        imageFile = json["image_file"] as? String
+        videoFile = json["video_file"] as? String
     }
+
+    func supports(_ sourceKind: WatermarkSourceKind) -> Bool {
+        switch sourceKind {
+        case .image: imageFile != nil
+        case .video: videoFile != nil
+        }
+    }
+}
+
+enum WatermarkSourceKind {
+    case image
+    case video
 }
 
 struct FrameBackgroundOption: Identifiable, Hashable {

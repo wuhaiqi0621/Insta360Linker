@@ -44,6 +44,40 @@ final class AppModel: ObservableObject {
         media.filter { mediaFilter == "all" || $0.kind == mediaFilter }
     }
 
+    var watermarkSourceKind: WatermarkSourceKind? {
+        let ext = URL(fileURLWithPath: watermarkInput).pathExtension.lowercased()
+        if ["jpg", "jpeg", "png", "webp"].contains(ext) { return .image }
+        if ["mp4", "mov", "mkv", "avi", "m4v"].contains(ext) { return .video }
+        return nil
+    }
+
+    var compatibleWatermarkStyles: [WatermarkStyleOption] {
+        guard let watermarkSourceKind else { return watermarkStyles }
+        return watermarkStyles.filter { $0.supports(watermarkSourceKind) }
+    }
+
+    var selectedWatermarkStyle: WatermarkStyleOption? {
+        watermarkStyles.first { $0.id == watermarkStyle }
+    }
+
+    var watermarkUsesFrame: Bool {
+        selectedWatermarkStyle?.kind == "frame" && watermarkSourceKind != .video
+    }
+
+    var watermarkSupportsPosition: Bool {
+        selectedWatermarkStyle?.kind != "frame" && watermarkSourceKind == .video
+    }
+
+    var watermarkUsesCustomMoment: Bool {
+        watermarkUsesFrame && momentPreset == "custom"
+    }
+
+    var canRenderWatermark: Bool {
+        !watermarkInput.isEmpty
+            && selectedWatermarkStyle?.supports(watermarkSourceKind ?? .image) == true
+            && (!watermarkUsesCustomMoment || !momentImage.isEmpty)
+    }
+
     var availableVideoFPS: [Int] {
         switch videoFormat {
         case "8k_16_9": [30, 25, 24]
@@ -220,6 +254,7 @@ final class AppModel: ObservableObject {
     func loadWatermarkCatalog() {
         perform("watermark_styles") { data in
             self.watermarkStyles = (data["value"] as? [[String: Any]] ?? []).compactMap(WatermarkStyleOption.init)
+            self.normalizeWatermarkConfiguration()
         }
         perform("watermark_frame_backgrounds") { data in
             self.frameBackgrounds = (data["value"] as? [[String: Any]] ?? []).compactMap(FrameBackgroundOption.init)
@@ -229,6 +264,7 @@ final class AppModel: ObservableObject {
     func chooseWatermarkInput() {
         if let path = chooseOpenFile(types: ["jpg", "jpeg", "png", "webp", "mp4", "mov", "mkv", "m4v"]) {
             watermarkInput = path
+            normalizeWatermarkConfiguration()
             refreshWatermarkPreview()
         }
     }
@@ -242,7 +278,10 @@ final class AppModel: ObservableObject {
     }
 
     func refreshWatermarkPreview() {
-        guard !watermarkInput.isEmpty else { return }
+        guard canRenderWatermark else {
+            watermarkPreview = nil
+            return
+        }
         perform("watermark_preview", payload: watermarkPayload(output: nil)) { data in
             guard let base64 = data["data"] as? String,
                   let bytes = Data(base64Encoded: base64),
@@ -255,6 +294,10 @@ final class AppModel: ObservableObject {
     func exportWatermark() {
         guard !watermarkInput.isEmpty else {
             errorMessage = "请先选择原始文件"
+            return
+        }
+        guard canRenderWatermark else {
+            errorMessage = watermarkUsesCustomMoment ? "请先选择自定义 Luna Moment 图片" : "当前水印样式不支持这个文件"
             return
         }
         let source = URL(fileURLWithPath: watermarkInput)
@@ -270,14 +313,28 @@ final class AppModel: ObservableObject {
     private func watermarkPayload(output: String?) -> [String: Any] {
         var payload: [String: Any] = [
             "input": watermarkInput,
-            "position": watermarkPosition,
+            "position": watermarkSupportsPosition ? watermarkPosition : "bottom-center",
             "style": watermarkStyle,
-            "frame_background": frameBackground,
-            "moment_preset": momentPreset,
-            "moment_image": momentImage,
+            "frame_background": watermarkUsesFrame ? frameBackground : "black",
+            "moment_preset": watermarkUsesFrame ? momentPreset : "official",
         ]
+        if watermarkUsesCustomMoment { payload["moment_image"] = momentImage }
         if let output { payload["output"] = output }
         return payload
+    }
+
+    func watermarkConfigurationDidChange() {
+        normalizeWatermarkConfiguration()
+        refreshWatermarkPreview()
+    }
+
+    private func normalizeWatermarkConfiguration() {
+        if !compatibleWatermarkStyles.contains(where: { $0.id == watermarkStyle }),
+           let fallback = compatibleWatermarkStyles.first
+        {
+            watermarkStyle = fallback.id
+        }
+        if !watermarkSupportsPosition { watermarkPosition = "bottom-center" }
     }
 
     func scanMic() {

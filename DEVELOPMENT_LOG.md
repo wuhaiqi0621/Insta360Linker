@@ -268,3 +268,16 @@ This file records repository-level operations so another model or developer can 
 - Final Windows virtual-camera DLL SHA-256: `cfedd345ac8ff2b797a638735e567f72b5800bf8701e0da9f05ad5ecc5403177`.
 - Final Android ARM64 debug APK SHA-256: `d19615f10b740cdcc3ddb507bebe285a8d3eba6278b51a73f964529e22b3f2ba`.
 - The visual-check script, 24 screenshots, JSON report, separate Windows target directory and Android intermediate output directories were designated temporary and removed after verification; only source changes and final deliverables remain.
+
+## 2026-08-12 - Capability-driven conditional native UI
+
+- Added explicit image/video capability parsing for every official watermark style, using the backend catalog's `image_file`, `video_file` and `kind` fields instead of maintaining a separate visual-only assumption in SwiftUI.
+- Filtered the native watermark style picker to styles supported by the selected source media. Selecting a video automatically removes photo-only frame styles and normalizes an incompatible previous selection to a supported official style.
+- Changed the watermark form to progressive disclosure: style selection appears after choosing a source; position appears only for video mark styles; frame background and Luna Moment appear only for photo frame styles; the custom image row appears only for the custom Moment preset; export and preview actions appear only when their prerequisites are available.
+- Normalized the payload as well as the UI so hidden settings cannot leak stale values into rendering: fixed layouts always use bottom-center, non-frame styles omit custom Moment images, and unsupported style/media combinations cannot preview or export.
+- Hid media filters and management until the camera is connected, hid batch download/delete controls until media is selected, and replaced unavailable media states with native `ContentUnavailableView` content.
+- Hid capture, preview, lens and gimbal controls until the control session is ready; hid recording format controls outside video mode and locked mode/format changes while recording.
+- Added native scanning, empty and populated states to the Mic Pro split view so an empty device list no longer presents a blank control surface.
+- Recompiled the complete SwiftUI frontend with Swift 6.4, rebuilt and signed the app bundle, and verified the initial unconnected accessibility tree contains the connection action and native unavailable state without hidden media-management controls.
+- Re-ran formatting and the locked backend suite: 46 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored; strict bundle signing, Info.plist validation and the no-WebKit frontend dependency check also passed.
+- Installed SHA-256 values after conditional-UI integration: native SwiftUI frontend `65ed835fe10741787d49bc6cd60614fe0ade36e136ceccd12394d9a412c62f9d`; Rust backend helper `e7627c98b236e9fc13d193d3792de9239b744e4af8a374db7aefd7d7786b8fed`.
