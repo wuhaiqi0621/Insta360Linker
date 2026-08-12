@@ -41,7 +41,25 @@ cd "$PROJECT_DIR"
 cargo build --release --bin Insta360Linker
 
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/ffmpeg" "$RESOURCES_DIR/apk_watermark"
-cp "$PROJECT_DIR/target/release/Insta360Linker" "$MACOS_DIR/$APP_NAME"
+cp "$PROJECT_DIR/target/release/Insta360Linker" "$RESOURCES_DIR/Insta360LinkerBackend"
+
+MACOS_ARCH=$(uname -m)
+case "$MACOS_ARCH" in
+    arm64|x86_64) ;;
+    *)
+        echo "Unsupported SwiftUI architecture: $MACOS_ARCH" >&2
+        exit 1
+        ;;
+esac
+
+swiftc \
+    -parse-as-library \
+    -O \
+    -target "$MACOS_ARCH-apple-macosx26.0" \
+    -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
+    "$PROJECT_DIR"/macos/NativeApp/*.swift \
+    -o "$MACOS_DIR/$APP_NAME"
+
 cp "$PROJECT_DIR/macos/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$ICON_ASSETS/Assets.car" "$RESOURCES_DIR/Assets.car"
 cp "$ICON_ASSETS/Insta360Linker.icns" "$RESOURCES_DIR/Insta360Linker.icns"
@@ -49,7 +67,8 @@ cp "$ICON_ASSETS/Insta360Linker.icns" "$RESOURCES_DIR/Insta360Linker.icns"
 cp "$FFMPEG_BINARY" "$RESOURCES_DIR/ffmpeg/ffmpeg"
 cp -R "$WATERMARK_RESOURCES/." "$RESOURCES_DIR/apk_watermark/"
 
-chmod +x "$MACOS_DIR/$APP_NAME"
+chmod +x "$MACOS_DIR/$APP_NAME" "$RESOURCES_DIR/Insta360LinkerBackend"
+codesign --force --sign - "$RESOURCES_DIR/Insta360LinkerBackend"
 codesign --force --deep --sign - "$APP_DIR"
 
 echo "$APP_DIR"

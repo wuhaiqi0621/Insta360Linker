@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Insta360Linker</title>
   <style>
     :root {
@@ -67,6 +67,7 @@
       height: 36px;
       display: grid;
       place-items: center;
+      object-fit: cover;
       border-radius: 8px;
       background: var(--surface-strong);
       color: var(--blue);
@@ -696,6 +697,141 @@
     html.native-mica .sidebar,
     html.native-mica .topbar { backdrop-filter: none; }
 
+    html.native-liquid-glass {
+      color-scheme: light dark;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      --bg: transparent;
+      --workspace: transparent;
+      --surface: rgba(255, 255, 255, .82);
+      --surface-strong: rgba(255, 255, 255, .94);
+      --surface-soft: rgba(246, 247, 249, .86);
+      --chrome: transparent;
+      --sidebar: transparent;
+      --line: rgba(60, 60, 67, .16);
+      --line-strong: rgba(60, 60, 67, .26);
+      --blue: #007aff;
+      --blue-soft: rgba(0, 122, 255, .14);
+      --shadow: 0 10px 30px rgba(20, 24, 32, .1);
+    }
+
+    html.native-liquid-glass .app,
+    html.native-liquid-glass .workspace { background: transparent; }
+
+    html.native-liquid-glass .sidebar {
+      margin: 8px;
+      padding: 62px 14px 16px;
+      border: 0;
+      border-radius: 22px;
+      background: transparent;
+      color: var(--ink);
+      backdrop-filter: none;
+    }
+
+    html.native-liquid-glass .brand { padding-bottom: 18px; }
+    html.native-liquid-glass .brand-mark {
+      overflow: hidden;
+      border-radius: 10px;
+      background: transparent;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, .12);
+    }
+    html.native-liquid-glass .brand span,
+    html.native-liquid-glass .nav-button,
+    html.native-liquid-glass .status-text,
+    html.native-liquid-glass .host-text { color: var(--muted); }
+    html.native-liquid-glass .nav-button {
+      min-height: 40px;
+      border-radius: 12px;
+    }
+    html.native-liquid-glass .nav-button:hover {
+      background: rgba(127, 127, 127, .1);
+      color: var(--ink);
+    }
+    html.native-liquid-glass .nav-button.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+      box-shadow: inset 0 0 0 .5px rgba(0, 122, 255, .18);
+    }
+    html.native-liquid-glass .sidebar-status {
+      border-top-color: var(--line);
+    }
+
+    html.native-liquid-glass .topbar {
+      margin: 8px 8px 0 4px;
+      padding: 0 20px;
+      border: 0;
+      border-radius: 18px;
+      background: transparent;
+      backdrop-filter: none;
+    }
+    html.native-liquid-glass .topbar h1 {
+      font-size: 19px;
+      font-weight: 650;
+      letter-spacing: -.01em;
+    }
+
+    html.native-liquid-glass .page-stack {
+      margin: 0 8px 8px 4px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(242, 243, 245, .88);
+      box-shadow: 0 1px 1px rgba(0, 0, 0, .03);
+    }
+    html.native-liquid-glass .page-inner { padding: 22px 24px 34px; }
+
+    html.native-liquid-glass .button,
+    html.native-liquid-glass .field,
+    html.native-liquid-glass .gimbal-button { border-radius: 10px; }
+    html.native-liquid-glass .button {
+      min-height: 34px;
+      box-shadow: 0 .5px 1px rgba(0, 0, 0, .05);
+    }
+    html.native-liquid-glass .button.primary {
+      border-color: transparent;
+      background: var(--blue);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 90, 210, .22);
+    }
+    html.native-liquid-glass .button.icon { border-radius: 999px; }
+    html.native-liquid-glass .field:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, .16);
+    }
+    html.native-liquid-glass .segmented { border-radius: 12px; }
+    html.native-liquid-glass .segment { border-radius: 9px; }
+
+    html.native-liquid-glass .connection-band,
+    html.native-liquid-glass .library-toolbar,
+    html.native-liquid-glass .gimbal-band,
+    html.native-liquid-glass .form-panel,
+    html.native-liquid-glass .preview-panel,
+    html.native-liquid-glass .device-panel,
+    html.native-liquid-glass .device-card,
+    html.native-liquid-glass .virtual-camera-control {
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .035);
+    }
+    html.native-liquid-glass .media-card { border-radius: 14px; }
+    html.native-liquid-glass .camera-console { border-radius: 18px; }
+    html.native-liquid-glass .gimbal-pad { border-radius: 16px; }
+    html.native-liquid-glass .empty-state { border-radius: 16px; }
+    html.native-liquid-glass .context-menu,
+    html.native-liquid-glass .confirm-dialog,
+    html.native-liquid-glass .toast { border-radius: 14px; }
+
+    @media (prefers-color-scheme: dark) {
+      html.native-liquid-glass {
+        --surface: rgba(46, 47, 51, .9);
+        --surface-strong: rgba(54, 55, 60, .96);
+        --surface-soft: rgba(59, 60, 65, .88);
+        --line: rgba(255, 255, 255, .13);
+        --line-strong: rgba(255, 255, 255, .22);
+        --blue: #0a84ff;
+        --blue-soft: rgba(10, 132, 255, .2);
+      }
+      html.native-liquid-glass .page-stack { background: rgba(25, 26, 29, .9); }
+    }
+
     @media (prefers-color-scheme: dark) {
       html.native-mica {
         --bg: transparent;
@@ -710,9 +846,214 @@
       }
     }
 
+    /* One hierarchy on every host: native material where the OS provides it,
+       and a non-blurred static glass treatment on Android. */
+    html.android-host {
+      color-scheme: light dark;
+      font-family: Roboto, "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+      --bg: #e8eef6;
+      --surface: rgba(255, 255, 255, .92);
+      --surface-strong: #ffffff;
+      --surface-soft: rgba(246, 249, 253, .96);
+      --chrome: rgba(255, 255, 255, .9);
+      --sidebar: rgba(255, 255, 255, .86);
+      --workspace: transparent;
+      --ink: #172033;
+      --muted: #637087;
+      --line: rgba(50, 68, 94, .14);
+      --line-strong: rgba(50, 68, 94, .24);
+      --blue: #0b70e0;
+      --blue-soft: rgba(11, 112, 224, .12);
+      --shadow: 0 12px 32px rgba(43, 61, 86, .12);
+    }
+
+    html:is(.native-liquid-glass, .native-mica, .android-host) .app {
+      grid-template-columns: 236px minmax(0, 1fr);
+      background: transparent;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .workspace {
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .sidebar {
+      margin: 8px;
+      padding: 22px 14px 16px;
+      border: 0;
+      border-radius: 22px;
+      color: var(--ink);
+      backdrop-filter: none;
+    }
+    html.native-liquid-glass .sidebar {
+      padding-top: 62px;
+      background: transparent;
+    }
+    html.native-mica .sidebar {
+      border: 1px solid var(--line);
+      background: var(--sidebar);
+      box-shadow: var(--shadow);
+    }
+    html.android-host .app {
+      background:
+        radial-gradient(circle at 88% 3%, rgba(83, 156, 255, .2), transparent 34%),
+        linear-gradient(150deg, #f4f7fb 0%, var(--bg) 58%, #e3ebf5 100%);
+    }
+    html.android-host .sidebar,
+    html.android-host .topbar {
+      border: 1px solid rgba(255, 255, 255, .72);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(242, 247, 253, .86));
+      box-shadow: 0 10px 28px rgba(38, 58, 86, .11), inset 0 1px rgba(255, 255, 255, .94);
+      backdrop-filter: none;
+    }
+
+    html:is(.native-liquid-glass, .native-mica, .android-host) .brand {
+      padding-bottom: 18px;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .brand-mark {
+      overflow: hidden;
+      border-radius: 10px;
+      background: transparent;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, .12);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .brand span,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .nav-button,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .status-text,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .host-text {
+      color: var(--muted);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .nav-button {
+      min-height: 40px;
+      border-radius: 12px;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .nav-button:hover {
+      background: rgba(127, 127, 127, .1);
+      color: var(--ink);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .nav-button.active {
+      background: var(--blue-soft);
+      color: var(--blue);
+      box-shadow: inset 0 0 0 .5px rgba(20, 112, 225, .18);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .sidebar-status {
+      border-top-color: var(--line);
+    }
+
+    html:is(.native-liquid-glass, .native-mica, .android-host) .topbar {
+      margin: 8px 8px 0 4px;
+      padding: 0 20px;
+      border: 0;
+      border-radius: 18px;
+      backdrop-filter: none;
+    }
+    html.native-liquid-glass .topbar { background: transparent; }
+    html.native-mica .topbar {
+      border: 1px solid var(--line);
+      background: var(--chrome);
+      box-shadow: 0 7px 24px rgba(31, 45, 63, .08);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .topbar h1 {
+      font-size: 19px;
+      font-weight: 650;
+      letter-spacing: -.01em;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .page-stack {
+      margin: 0 8px 8px 4px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, .03);
+    }
+    html.native-liquid-glass .page-stack { background: rgba(242, 243, 245, .88); }
+    html.native-mica .page-stack { background: var(--workspace); }
+    html.android-host .page-stack { background: rgba(247, 249, 252, .96); }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .page-inner {
+      padding: 22px 24px 34px;
+    }
+
+    html:is(.native-liquid-glass, .native-mica, .android-host) .button,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .field,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .gimbal-button {
+      border-radius: 10px;
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .button {
+      box-shadow: 0 .5px 1px rgba(0, 0, 0, .05);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .button.primary {
+      border-color: transparent;
+      background: var(--blue);
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 90, 210, .22);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .button.icon { border-radius: 999px; }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .field:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(20, 112, 225, .16);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .segmented { border-radius: 12px; }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .segment { border-radius: 9px; }
+
+    html:is(.native-liquid-glass, .native-mica, .android-host) .connection-band,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .library-toolbar,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .gimbal-band,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .form-panel,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .preview-panel,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .device-panel,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .device-card,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .virtual-camera-control {
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .035);
+    }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .media-card { border-radius: 14px; }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .camera-console { border-radius: 18px; }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .gimbal-pad,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .empty-state { border-radius: 16px; }
+    html:is(.native-liquid-glass, .native-mica, .android-host) .context-menu,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .confirm-dialog,
+    html:is(.native-liquid-glass, .native-mica, .android-host) .toast { border-radius: 14px; }
+
+    html.android-host .button,
+    html.android-host .field,
+    html.android-host .gimbal-button,
+    html.android-host .nav-button { min-height: 48px; }
+
+    @media (prefers-color-scheme: dark) {
+      html.native-liquid-glass .page-stack { background: rgba(25, 26, 29, .9); }
+      html.native-mica .page-stack { background: rgba(18, 23, 30, .54); }
+      html.android-host {
+        --bg: #111720;
+        --surface: rgba(34, 42, 54, .96);
+        --surface-strong: #2a3442;
+        --surface-soft: rgba(42, 52, 66, .96);
+        --chrome: rgba(28, 36, 48, .96);
+        --sidebar: rgba(25, 33, 44, .96);
+        --ink: #edf2f8;
+        --muted: #abb7c7;
+        --line: rgba(255, 255, 255, .12);
+        --line-strong: rgba(255, 255, 255, .22);
+        --blue: #72aaff;
+        --blue-soft: rgba(56, 119, 211, .28);
+      }
+      html.android-host .app {
+        background:
+          radial-gradient(circle at 88% 3%, rgba(46, 108, 195, .26), transparent 36%),
+          linear-gradient(150deg, #161e29 0%, var(--bg) 60%, #0e141d 100%);
+      }
+      html.android-host .sidebar,
+      html.android-host .topbar {
+        border-color: rgba(255, 255, 255, .12);
+        background: linear-gradient(145deg, #222c39, #18212c);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .07);
+      }
+      html.android-host .page-stack { background: rgba(20, 27, 37, .97); }
+    }
+
     @media (prefers-reduced-transparency: reduce) {
       :root,
-      html.native-mica {
+      html.native-mica,
+      html.native-liquid-glass,
+      html.android-host {
         --bg: #eef2f6;
         --surface: #ffffff;
         --surface-strong: #ffffff;
@@ -726,7 +1067,9 @@
 
     @media (prefers-color-scheme: dark) and (prefers-reduced-transparency: reduce) {
       :root,
-      html.native-mica {
+      html.native-mica,
+      html.native-liquid-glass,
+      html.android-host {
         --bg: #181e26;
         --surface: #252d37;
         --surface-strong: #2a323d;
@@ -737,7 +1080,7 @@
       }
     }
 
-    html.no-native-mica {
+    html.no-native-surface {
       --bg: #eef2f6;
       --surface: #ffffff;
       --surface-strong: #ffffff;
@@ -747,13 +1090,36 @@
       --workspace: transparent;
     }
 
-    html.no-native-mica .sidebar,
-    html.no-native-mica .topbar,
-    html.no-native-mica .context-menu,
-    html.no-native-mica .live-status { backdrop-filter: none; }
+    html.no-native-surface .sidebar,
+    html.no-native-surface .topbar,
+    html.no-native-surface .context-menu,
+    html.no-native-surface .live-status { backdrop-filter: none; }
+
+    html.no-native-surface .app { grid-template-columns: 236px minmax(0, 1fr); }
+    html.no-native-surface .sidebar {
+      margin: 8px;
+      border: 0;
+      border-radius: 22px;
+    }
+    html.macos-host.no-native-surface .sidebar { padding-top: 62px; }
+    html.no-native-surface .topbar {
+      margin: 8px 8px 0 4px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    html.no-native-surface .page-stack {
+      margin: 0 8px 8px 4px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--bg);
+    }
+    html.no-native-surface .nav-button { min-height: 40px; border-radius: 12px; }
+    html.no-native-surface .button,
+    html.no-native-surface .field,
+    html.no-native-surface .gimbal-button { border-radius: 10px; }
 
     @media (prefers-color-scheme: dark) {
-      html.no-native-mica {
+      html.no-native-surface {
         --bg: #181e26;
         --surface: #252d37;
         --surface-strong: #2a323d;
@@ -767,7 +1133,9 @@
     @media (forced-colors: active) {
       :root,
       html.native-mica,
-      html.no-native-mica {
+      html.native-liquid-glass,
+      html.android-host,
+      html.no-native-surface {
         --bg: Canvas;
         --surface: Canvas;
         --surface-strong: Canvas;
@@ -796,7 +1164,12 @@
 
     @media (max-width: 960px) {
       .app { grid-template-columns: 78px minmax(0, 1fr); }
+      html:is(.native-liquid-glass, .native-mica, .android-host) .app {
+        grid-template-columns: 78px minmax(0, 1fr);
+      }
+      html.no-native-surface .app { grid-template-columns: 78px minmax(0, 1fr); }
       .sidebar { padding-inline: 10px; }
+      html.native-liquid-glass .sidebar { padding-top: 62px; }
       .brand { justify-content: center; padding-inline: 0; }
       .brand-copy, .nav-label, .sidebar-status { display: none; }
       .nav-button { display: grid; grid-template-columns: 1fr; justify-items: center; }
@@ -835,7 +1208,18 @@
       .form-grid { grid-template-columns: 1fr; }
       .preview-dialog { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
       .preview-info { max-height: 190px; }
-      html.native-mica .workspace { height: auto; margin: 0 8px 8px; }
+      html.native-mica .workspace { height: auto; margin: 0; }
+      html.native-liquid-glass .sidebar { margin: 8px; }
+      html.android-host .sidebar {
+        margin: 8px;
+        border-radius: 18px;
+        padding: 8px 10px;
+      }
+      html.android-host .nav { margin-left: auto; }
+      html.android-host .nav-button { width: 48px; min-height: 48px; padding: 6px; }
+      html.android-host .workspace { height: calc(100vh - 64px); }
+      html.android-host .topbar { margin: 0 8px; }
+      html.android-host .page-stack { margin: 0 8px 8px; }
     }
   </style>
 </head>
@@ -843,7 +1227,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">L</div>
+        <img class="brand-mark" src="app-icon.png" alt="">
         <div class="brand-copy"><strong>Insta360Linker</strong><span>桌面媒体工作台</span></div>
       </div>
       <nav class="nav" aria-label="主导航">

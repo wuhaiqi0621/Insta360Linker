@@ -12,6 +12,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
@@ -25,6 +26,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.View;
 import android.view.Window;
 import android.window.OnBackInvokedDispatcher;
 import android.webkit.JavascriptInterface;
@@ -68,16 +70,14 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Window window = getWindow();
-        window.setStatusBarColor(0xff121216);
-        window.setNavigationBarColor(0xff121216);
+        int chromeColor = configureSystemAppearance();
 
         copyAssetTree("runtime_assets", new File(getFilesDir(), "assets"));
         NativeBridge.nativeInit(getFilesDir().getAbsolutePath());
         requestBluetoothPermissions();
 
         webView = new WebView(this);
-        webView.setBackgroundColor(0xff121216);
+        webView.setBackgroundColor(chromeColor);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -97,7 +97,7 @@ public final class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
-                String script = "document.documentElement.classList.add('android-host','no-native-mica');"
+                String script = "document.documentElement.classList.remove('native-liquid-glass','native-mica','no-native-surface','macos-host','windows-host');document.documentElement.classList.add('android-host');"
                     + "const v=document.getElementById('virtualCameraControl');if(v)v.style.display='none';"
                     + "const p=document.getElementById('togglePreview');if(p)p.style.display='none';"
                     + "const d=document.getElementById('batchDownload');if(d)d.textContent='保存所选';"
@@ -124,6 +124,33 @@ public final class MainActivity extends Activity {
             );
         }
         webView.loadUrl("file:///android_asset/web/index.html");
+    }
+
+    private int configureSystemAppearance() {
+        Window window = getWindow();
+        boolean darkAppearance = (getResources().getConfiguration().uiMode
+            & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        int chromeColor = darkAppearance ? 0xff111720 : 0xffe8eef6;
+        window.setStatusBarColor(chromeColor);
+        window.setNavigationBarColor(chromeColor);
+        int systemUi = 0;
+        if (!darkAppearance && Build.VERSION.SDK_INT >= 23) {
+            systemUi |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        }
+        if (!darkAppearance && Build.VERSION.SDK_INT >= 26) {
+            systemUi |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        window.getDecorView().setSystemUiVisibility(systemUi);
+        return chromeColor;
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        int chromeColor = configureSystemAppearance();
+        if (webView != null) {
+            webView.setBackgroundColor(chromeColor);
+        }
     }
 
     @Override

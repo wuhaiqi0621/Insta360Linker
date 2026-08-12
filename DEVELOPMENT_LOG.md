@@ -214,3 +214,31 @@ This file records repository-level operations so another model or developer can 
 - Built and ad-hoc signed `dist/Insta360Linker.app`; strict deep-signature validation passed, `Info.plist` reports the new name/identifier, the native icon resources and all 39 official watermark files are present, and the executable SHA-256 is `2b20bf73e2c97fa4c8de7dd98d5f827eada8904c24e57b763e5caa3483d72ba8`.
 - Installed and successfully launched `/Applications/Insta360Linker.app`. Moved the obsolete `/Applications/Luna Studio.app` bundle to `~/.Trash/Luna Studio.app`, where it remains recoverable.
 - Static branding asset SHA-256 values: `Insta360Linker-glass.png` is `9bb94d211849760ee87473b801aad4466827e400477891d1cc948154aefa8dd4`; `Insta360Linker.ico` is `76dae6e5e0de1b4de6e3f015aa59cffb97b7630bdcdba0008fc7eb6872221385`.
+
+## 2026-08-12 - Pure SwiftUI macOS Liquid Glass and unified cross-platform design
+
+- Replaced the macOS WebView frontend completely with a Swift 6.4/SwiftUI application targeting macOS 26. The packaged `Contents/MacOS/Insta360Linker` executable contains the Apple-native frontend and does not host HTML or WebKit content.
+- Rebuilt all four macOS feature areas as native SwiftUI: camera media grid and selection, capture/live-view controls, watermark preview/export form, and Mic Pro scanning/inspection. Navigation, forms, pickers, sliders, lists, split views, alerts, confirmation dialogs and open/save panels now use SwiftUI or AppKit system components.
+- Applied native `GlassEffectContainer`, `.glassEffect`, `.buttonStyle(.glass)` and `.glassProminent` surfaces throughout the sidebar, topbar, cards, controls and notices. The native SwiftUI accessibility tree and visible Liquid Glass refraction/highlights were verified in the installed application.
+- Added a process-based Swift/Rust bridge: the existing Rust camera, UCD2, media, thumbnail, Bluetooth, FFmpeg and official watermark implementation now runs as the signed bundle helper `Contents/Resources/Insta360LinkerBackend`, exchanging newline-delimited JSON and live JPEG preview events with SwiftUI.
+- Preserved delayed desktop save prompts in the native frontend: media downloads choose a folder only after `下载所选`, and watermark export opens `NSSavePanel` only after `导出水印文件`.
+- Updated the macOS build to compile the SwiftUI executable with the macOS 26 SDK, package and sign the Rust helper separately, retain the Xcode 27 `Assets.car`/`.icns` icon resources, and declare macOS 26 as the minimum supported system.
+- Unified Windows Mica and Android static glass with the same floating navigation hierarchy, spacing, radii, selection state and card language while retaining their existing Web UI hosts.
+- Added `web/app-icon.png`, a 128px render of the supplied Xcode 27 glass icon, to the Windows/Android shared brand header and Android runtime assets. Its SHA-256 is `ba90f253af831914bccbcc2f802613cbf1bd12125d2ba7b1da760fb6f1413fda`.
+- Updated Android to inject the current `android-host` class, package the shared icon, use 48dp-equivalent touch targets and keep status/navigation bars synchronized with system light or dark appearance. Mobile export remains direct-to-gallery with no destination picker.
+- Added static fallbacks for reduced transparency, forced colors and desktop systems without native Mica. Android uses non-blurred gradient/highlight surfaces instead of pretending to provide OS Liquid Glass.
+- Verified the Swift-to-Rust bridge by issuing a real native camera connection from the installed SwiftUI interface; the Rust backend returned the expected physical-network diagnostic for the Mac's current non-camera Wi-Fi route.
+- Compiled the complete native SwiftUI frontend independently with Swift 6.4 and the macOS 27 SDK, then ran the locked Rust suite: 46 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.
+- Rebuilt, separately signed and installed the SwiftUI app plus Rust helper at `/Applications/Insta360Linker.app`; strict deep-signature and Info.plist validation passed. `otool` confirms the frontend links SwiftUI/AppKit and has no WebKit dependency.
+- Final installed SHA-256 values: native SwiftUI frontend `a875454db9415a1b3f34fd43bb640227b1a566540e9a2bc3612528a678b25ff3`; Rust backend helper `e7627c98b236e9fc13d193d3792de9239b744e4af8a374db7aefd7d7786b8fed`.
+- Visually and interactively verified the installed SwiftUI camera-media, capture/live-view, watermark and Mic Pro pages, including native accessibility elements and the Swift-to-Rust connection response. Android Gradle/APK compilation remains assigned to GitHub Actions because this Mac has no Java runtime or Android SDK.
+
+## 2026-08-12 - Native macOS window background and system component correction
+
+- Removed the transparent whole-window background that had been introduced by `.containerBackground(.clear, for: .window)` and restored `NSColor.windowBackgroundColor` as the stable native window and detail-area base.
+- Replaced the hand-built sidebar, header and nested glass-panel hierarchy with Apple's `NavigationSplitView`, selectable `List`, unified `Toolbar`, `Form`, `GroupBox`, `ControlGroup`, `HSplitView`, `ContentUnavailableView` and standard control styles.
+- Removed `GlassEffectContainer` and all manually applied `.glassEffect(...)` surfaces from the macOS frontend. Liquid Glass is now provided by macOS in the system navigation, toolbar, selection and button contexts where Apple intends the material to appear.
+- Retained native `.buttonStyle(.glass)` and `.buttonStyle(.glassProminent)` only for appropriate custom actions such as camera connection, capture, scanning and export.
+- Rebuilt and installed `/Applications/Insta360Linker.app`, then visually verified that the full window has an opaque system background and that no desktop content leaks through the detail area.
+- Re-ran the standalone Swift 6.4 compile, complete macOS packaging, strict deep code-signature validation, Info.plist validation and dependency inspection; all passed and the SwiftUI frontend remains free of WebKit linkage.
+- Installed SHA-256 values after this correction: native SwiftUI frontend `945384919264843c445e5900a7f9f736830399d96dae0bba8988876cf84c7409`; Rust backend helper `e7627c98b236e9fc13d193d3792de9239b744e4af8a374db7aefd7d7786b8fed`.

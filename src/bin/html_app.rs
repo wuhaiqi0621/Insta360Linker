@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "macos", allow(dead_code, unused_imports))]
+
 #[path = "../adapters/mod.rs"]
 mod adapters;
 
@@ -26,7 +28,7 @@ use std::collections::hash_map::DefaultHasher;
 
 use std::hash::{Hash, Hasher};
 
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
 use std::net::{TcpListener, TcpStream};
 
@@ -50,6 +52,7 @@ use tao::window::WindowBuilder;
 use wry::{WebViewBuilder, http::Request};
 
 const HTML: &str = include_str!("../../web/index.html");
+const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/branding/Insta360Linker-glass.png");
 
 #[cfg(windows)]
 fn app_window_icon() -> Option<Icon> {
@@ -412,12 +415,27 @@ fn apply_mica(_window: &tao::window::Window) -> bool {
     false
 }
 
-fn mica_class_script(enabled: bool) -> &'static str {
-    if enabled {
-        "document.documentElement.classList.add('native-mica');document.documentElement.classList.remove('no-native-mica');"
+fn native_surface_class(liquid_glass_enabled: bool, mica_enabled: bool) -> &'static str {
+    if liquid_glass_enabled {
+        "native-liquid-glass"
+    } else if mica_enabled {
+        "native-mica"
     } else {
-        "document.documentElement.classList.add('no-native-mica');document.documentElement.classList.remove('native-mica');"
+        "no-native-surface"
     }
+}
+
+fn native_surface_class_script(liquid_glass_enabled: bool, mica_enabled: bool) -> String {
+    let platform_class = if cfg!(target_os = "macos") {
+        "macos-host"
+    } else {
+        "windows-host"
+    };
+    format!(
+        "document.documentElement.classList.remove('native-liquid-glass','native-mica','no-native-surface','macos-host','windows-host');document.documentElement.classList.add('{}','{}');",
+        native_surface_class(liquid_glass_enabled, mica_enabled),
+        platform_class
+    )
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -457,6 +475,25 @@ fn bundled_ffmpeg_path() -> Option<PathBuf> {
 }
 
 fn main() -> wry::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        if std::env::args().any(|argument| argument == "--native-backend") {
+            if let Err(error) = run_native_backend() {
+                eprintln!("Native backend failed: {error:#}");
+                std::process::exit(1);
+            }
+        } else {
+            eprintln!("This executable is the macOS SwiftUI backend helper.");
+        }
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    run_desktop_webview()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_desktop_webview() -> wry::Result<()> {
     if let Some(exit_code) = virtual_camera::handle_installer_mode() {
         std::process::exit(exit_code);
     }
@@ -497,16 +534,14 @@ fn main() -> wry::Result<()> {
     let window_builder = window_builder.with_window_icon(app_window_icon());
 
     let window = window_builder.build(&event_loop).unwrap();
+    let liquid_glass_enabled = false;
 
     let mica_surface_ready = prepare_mica_surface(&window);
     let mica_enabled = mica_surface_ready && apply_mica(&window);
+    let native_class = native_surface_class(liquid_glass_enabled, mica_enabled);
     let html = HTML.replacen(
         "<html lang=\"zh-CN\">",
-        if mica_enabled {
-            "<html lang=\"zh-CN\" class=\"native-mica\">"
-        } else {
-            "<html lang=\"zh-CN\" class=\"no-native-mica\">"
-        },
+        &format!("<html lang=\"zh-CN\" class=\"{native_class}\">"),
         1,
     );
     let app_url =
@@ -546,16 +581,20 @@ fn main() -> wry::Result<()> {
         });
     };
 
-    let webview = WebViewBuilder::new()
+    let webview_builder = WebViewBuilder::new()
         .with_url(&app_url)
         .with_ipc_handler(handler)
         .with_transparent(true)
-        .with_devtools(false)
-        .build(&window)?;
+        .with_devtools(false);
+
+    let webview = webview_builder.build(&window)?;
 
     // WebView2 creation can update the host window's composition state.
     let mica_enabled = mica_surface_ready && apply_mica(&window);
-    let _ = webview.evaluate_script(mica_class_script(mica_enabled));
+    let _ = webview.evaluate_script(&native_surface_class_script(
+        liquid_glass_enabled,
+        mica_enabled,
+    ));
 
     let mut webview = Some(webview);
 
@@ -598,7 +637,10 @@ fn main() -> wry::Result<()> {
             } => {
                 let mica_enabled = mica_surface_ready && apply_mica(&window);
                 if let Some(webview) = webview.as_ref() {
-                    let _ = webview.evaluate_script(mica_class_script(mica_enabled));
+                    let _ = webview.evaluate_script(&native_surface_class_script(
+                        liquid_glass_enabled,
+                        mica_enabled,
+                    ));
                 }
             }
 
@@ -613,93 +655,171 @@ fn main() -> wry::Result<()> {
     });
 }
 
+#[cfg(target_os = "macos")]
+type BackendWriter = Arc<Mutex<BufWriter<std::io::Stdout>>>;
+
+#[cfg(target_os = "macos")]
+fn write_backend_value(writer: &BackendWriter, value: &Value) -> anyhow::Result<()> {
+    let mut output = writer.lock().expect("native backend output lock poisoned");
+    serde_json::to_writer(&mut *output, value)?;
+    output.write_all(b"\n")?;
+    output.flush()?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn run_native_backend() -> anyhow::Result<()> {
+    let (preview_tx, preview_rx) = mpsc::sync_channel::<adapters::luna_local::LivePreviewChunk>(16);
+    let virtual_camera_frames = virtual_camera::FrameStore::new();
+    let (virtual_camera, virtual_camera_error) =
+        match virtual_camera::VirtualCameraController::new(virtual_camera_frames.clone()) {
+            Ok(controller) => (Some(controller), None),
+            Err(error) => (None, Some(Arc::new(error.to_string()))),
+        };
+    let state = AppState {
+        luna_session: Arc::new(Mutex::new(None)),
+        ucd2_session: Arc::new(Mutex::new(None)),
+        camera_control: Arc::new(Mutex::new(None)),
+        preview_tx,
+        virtual_camera,
+        virtual_camera_error,
+    };
+    let writer = Arc::new(Mutex::new(BufWriter::new(std::io::stdout())));
+    spawn_native_backend_preview_decoder(preview_rx, virtual_camera_frames, writer.clone());
+
+    for line in BufReader::new(std::io::stdin()).lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let response = match serde_json::from_str::<UiRequest>(&line) {
+            Ok(request) => response_for(request, state.clone()),
+            Err(error) => UiResponse {
+                id: 0,
+                ok: false,
+                command: "invalid".to_string(),
+                data: Value::Null,
+                error: Some(format!("请求解析失败：{error}")),
+            },
+        };
+        write_backend_value(&writer, &serde_json::to_value(response)?)?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_native_backend_preview_decoder(
+    preview_rx: mpsc::Receiver<adapters::luna_local::LivePreviewChunk>,
+    virtual_camera_frames: Arc<virtual_camera::FrameStore>,
+    writer: BackendWriter,
+) {
+    std::thread::spawn(move || {
+        let result = decode_preview_stream(preview_rx, virtual_camera_frames, |jpeg| {
+            write_backend_value(
+                &writer,
+                &json!({
+                    "event": "previewImage",
+                    "data": BASE64_STANDARD.encode(jpeg),
+                }),
+            )
+        });
+        if let Err(error) = result {
+            let _ = write_backend_value(
+                &writer,
+                &json!({"event": "previewError", "message": error.to_string()}),
+            );
+        }
+    });
+}
+
 fn spawn_preview_decoder(
     preview_rx: mpsc::Receiver<adapters::luna_local::LivePreviewChunk>,
     proxy: EventLoopProxy<UserEvent>,
     virtual_camera_frames: Arc<virtual_camera::FrameStore>,
 ) {
     std::thread::spawn(move || {
-        let ffmpeg_path = bundled_ffmpeg_path();
-        let Some(ffmpeg_path) = ffmpeg_path else {
-            send_preview_error(&proxy, "缺少实时预览解码组件 assets/ffmpeg/ffmpeg");
-            return;
-        };
-
-        let mut command = Command::new(ffmpeg_path);
-        command.args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-fflags",
-            "nobuffer",
-            "-flags",
-            "low_delay",
-            "-f",
-            "hevc",
-            "-i",
-            "pipe:0",
-            "-an",
-            "-vf",
-            "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black,fps=15",
-            "-f",
-            "image2pipe",
-            "-vcodec",
-            "mjpeg",
-            "-q:v",
-            "5",
-            "pipe:1",
-        ]);
-        command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null());
-
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(0x0800_0000);
-        }
-
-        let mut child = match command.spawn() {
-            Ok(child) => child,
-            Err(error) => {
-                send_preview_error(&proxy, &format!("无法启动实时预览解码器：{error}"));
-                return;
-            }
-        };
-
-        let Some(mut stdin) = child.stdin.take() else {
-            send_preview_error(&proxy, "无法打开实时预览解码输入");
-            let _ = child.kill();
-            return;
-        };
-        let Some(mut stdout) = child.stdout.take() else {
-            send_preview_error(&proxy, "无法打开实时预览解码输出");
-            let _ = child.kill();
-            return;
-        };
-
-        let input_thread = std::thread::spawn(move || {
-            while let Ok(chunk) = preview_rx.recv() {
-                if stdin.write_all(&chunk.data).is_err() || stdin.flush().is_err() {
-                    break;
-                }
-            }
+        let result = decode_preview_stream(preview_rx, virtual_camera_frames, |jpeg| {
+            let payload = json!({ "data": BASE64_STANDARD.encode(jpeg) });
+            let script = format!(
+                "window.Insta360LinkerBridge && window.Insta360LinkerBridge.previewImage({payload});"
+            );
+            proxy
+                .send_event(UserEvent::Js(script))
+                .map_err(|_| anyhow::anyhow!("应用窗口已关闭"))
         });
+        if let Err(error) = result {
+            send_preview_error(&proxy, &error.to_string());
+        }
+    });
+}
 
+fn decode_preview_stream<F>(
+    preview_rx: mpsc::Receiver<adapters::luna_local::LivePreviewChunk>,
+    virtual_camera_frames: Arc<virtual_camera::FrameStore>,
+    mut on_frame: F,
+) -> anyhow::Result<()>
+where
+    F: FnMut(&[u8]) -> anyhow::Result<()>,
+{
+    let ffmpeg_path =
+        bundled_ffmpeg_path().context("缺少实时预览解码组件 Contents/Resources/ffmpeg/ffmpeg")?;
+    let mut command = Command::new(ffmpeg_path);
+    command.args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-fflags",
+        "nobuffer",
+        "-flags",
+        "low_delay",
+        "-f",
+        "hevc",
+        "-i",
+        "pipe:0",
+        "-an",
+        "-vf",
+        "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black,fps=15",
+        "-f",
+        "image2pipe",
+        "-vcodec",
+        "mjpeg",
+        "-q:v",
+        "5",
+        "pipe:1",
+    ]);
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+
+    let mut child = command.spawn().context("无法启动实时预览解码器")?;
+    let mut decoder_input = child.stdin.take().context("无法打开实时预览解码输入")?;
+    let mut decoder_output = child.stdout.take().context("无法打开实时预览解码输出")?;
+    let input_thread = std::thread::spawn(move || {
+        while let Ok(chunk) = preview_rx.recv() {
+            if decoder_input.write_all(&chunk.data).is_err() || decoder_input.flush().is_err() {
+                break;
+            }
+        }
+    });
+
+    let result = (|| -> anyhow::Result<()> {
         let mut read_buffer = [0u8; 64 * 1024];
         let mut jpeg_buffer = Vec::with_capacity(256 * 1024);
         loop {
-            let count = match stdout.read(&mut read_buffer) {
-                Ok(0) => break,
-                Ok(count) => count,
-                Err(error) => {
-                    send_preview_error(&proxy, &format!("读取实时预览画面失败：{error}"));
-                    break;
-                }
-            };
+            let count = decoder_output
+                .read(&mut read_buffer)
+                .context("读取实时预览画面失败")?;
+            if count == 0 {
+                break;
+            }
             jpeg_buffer.extend_from_slice(&read_buffer[..count]);
-
             while let Some(start) = find_bytes(&jpeg_buffer, &[0xff, 0xd8], 0) {
                 if start > 0 {
                     jpeg_buffer.drain(..start);
@@ -709,25 +829,19 @@ fn spawn_preview_decoder(
                 };
                 let jpeg: Vec<u8> = jpeg_buffer.drain(..end + 2).collect();
                 virtual_camera_frames.update_jpeg(&jpeg);
-                let payload = json!({ "data": BASE64_STANDARD.encode(jpeg) });
-                let script = format!(
-                    "window.Insta360LinkerBridge && window.Insta360LinkerBridge.previewImage({payload});"
-                );
-                if proxy.send_event(UserEvent::Js(script)).is_err() {
-                    let _ = child.kill();
-                    let _ = input_thread.join();
-                    return;
-                }
+                on_frame(&jpeg)?;
             }
-
             if jpeg_buffer.len() > 8 * 1024 * 1024 {
                 jpeg_buffer.clear();
             }
         }
+        Ok(())
+    })();
 
-        let _ = child.kill();
-        let _ = input_thread.join();
-    });
+    let _ = child.kill();
+    drop(decoder_output);
+    let _ = input_thread.join();
+    result
 }
 
 fn find_bytes(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
@@ -1620,6 +1734,7 @@ fn handle_local_app_request(
     let path = target.split('?').next().unwrap_or(target);
     match path {
         "/" | "/index.html" => write_local_response(stream, 200, "text/html; charset=utf-8", html),
+        "/app-icon.png" => write_local_response(stream, 200, "image/png", APP_ICON_PNG),
         "/favicon.ico" => write_local_response(stream, 204, "image/x-icon", &[]),
         _ if path.starts_with("/media/") => {
             let encoded = path.trim_start_matches("/media/");
