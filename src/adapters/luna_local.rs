@@ -17,6 +17,9 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs};
 
 #[cfg(target_os = "macos")]
+use std::num::NonZeroU32;
+
+#[cfg(target_os = "macos")]
 use std::ffi::CStr;
 
 use std::path::Path;
@@ -41,8 +44,18 @@ fn same_ipv4_subnet(local: Ipv4Addr, netmask: Ipv4Addr, target: Ipv4Addr) -> boo
     u32::from(local) & mask == u32::from(target) & mask
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CameraNetworkBinding {
+    pub local_address: IpAddr,
+    pub interface_name: String,
+    #[cfg(target_os = "macos")]
+    interface_index: NonZeroU32,
+}
+
 #[cfg(target_os = "macos")]
-fn macos_matching_local_ipv4(target: Ipv4Addr) -> std::io::Result<Option<Ipv4Addr>> {
+fn macos_matching_camera_interface(
+    target: Ipv4Addr,
+) -> std::io::Result<Option<CameraNetworkBinding>> {
     let mut addresses: *mut libc::ifaddrs = std::ptr::null_mut();
     if unsafe { libc::getifaddrs(&mut addresses) } != 0 {
         return Err(std::io::Error::last_os_error());
@@ -69,8 +82,15 @@ fn macos_matching_local_ipv4(target: Ipv4Addr) -> std::io::Result<Option<Ipv4Add
                 if same_ipv4_subnet(local, mask, target) {
                     let name = unsafe { CStr::from_ptr(entry.ifa_name) }.to_string_lossy();
                     if !name.starts_with("utun") {
-                        matched = Some(local);
-                        break;
+                        let index = unsafe { libc::if_nametoindex(entry.ifa_name) };
+                        if let Some(interface_index) = NonZeroU32::new(index) {
+                            matched = Some(CameraNetworkBinding {
+                                local_address: IpAddr::V4(local),
+                                interface_name: name.into_owned(),
+                                interface_index,
+                            });
+                            break;
+                        }
                     }
                 }
             }
@@ -81,20 +101,20 @@ fn macos_matching_local_ipv4(target: Ipv4Addr) -> std::io::Result<Option<Ipv4Add
     Ok(matched)
 }
 
-pub fn camera_local_address(host: &str) -> Result<Option<IpAddr>, String> {
+pub fn camera_network_binding(host: &str) -> Result<Option<CameraNetworkBinding>, String> {
     #[cfg(target_os = "macos")]
     {
         let target = resolve_camera_address(host, 80).map_err(|error| error.to_string())?;
         let IpAddr::V4(target) = target.ip() else {
             return Ok(None);
         };
-        let local = macos_matching_local_ipv4(target).map_err(|error| error.to_string())?;
-        if local.is_none() && target.is_private() {
+        let binding = macos_matching_camera_interface(target).map_err(|error| error.to_string())?;
+        if binding.is_none() && target.is_private() {
             return Err(format!(
                 "Mac 未连接相机 Wi-Fi：没有找到与 {target} 同网段的物理网卡；请连接相机热点并暂时关闭会接管局域网的 VPN/代理"
             ));
         }
-        Ok(local.map(IpAddr::V4))
+        Ok(binding)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -104,6 +124,27 @@ pub fn camera_local_address(host: &str) -> Result<Option<IpAddr>, String> {
     }
 }
 
+pub fn camera_local_address(host: &str) -> Result<Option<IpAddr>, String> {
+    Ok(camera_network_binding(host)?.map(|binding| binding.local_address))
+}
+
+pub fn bind_camera_http_client(
+    builder: reqwest::blocking::ClientBuilder,
+    host: &str,
+) -> Result<reqwest::blocking::ClientBuilder, String> {
+    #[cfg(target_os = "macos")]
+    if let Some(binding) = camera_network_binding(host)? {
+        return Ok(builder
+            .local_address(binding.local_address)
+            .interface(&binding.interface_name));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = host;
+
+    Ok(builder)
+}
+
 fn connect_camera(host: &str, port: u16) -> std::io::Result<TcpStream> {
     let destination = resolve_camera_address(host, port)?;
 
@@ -111,10 +152,11 @@ fn connect_camera(host: &str, port: u16) -> std::io::Result<TcpStream> {
     {
         use socket2::{Domain, Protocol, Socket, Type};
 
-        let local = camera_local_address(host).map_err(std::io::Error::other)?;
+        let binding = camera_network_binding(host).map_err(std::io::Error::other)?;
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-        if let Some(local) = local {
-            socket.bind(&SocketAddr::new(local, 0).into())?;
+        if let Some(binding) = binding {
+            socket.bind_device_by_index_v4(Some(binding.interface_index))?;
+            socket.bind(&SocketAddr::new(binding.local_address, 0).into())?;
         }
         socket.connect_timeout(&destination.into(), CAMERA_CONNECT_TIMEOUT)?;
         return Ok(socket.into());
@@ -2604,13 +2646,15 @@ fn ucd2_checksum_table() -> [u32; 256] {
 
 pub fn check_status(host: &str, touch_control: bool) -> LunaStatus {
     let route_error = camera_local_address(host).err();
-    let http_ok = route_error.is_none() && connect_camera(host, 80).is_ok();
+    let http_result = route_error.is_none().then(|| connect_camera(host, 80));
+    let http_ok = http_result.as_ref().is_some_and(Result::is_ok);
 
-    let control_ok = if touch_control {
-        route_error.is_none() && connect_camera(host, 6666).is_ok()
+    let control_result = if touch_control && route_error.is_none() {
+        Some(connect_camera(host, 6666))
     } else {
-        false
+        None
     };
+    let control_ok = control_result.as_ref().is_some_and(Result::is_ok);
 
     let message = if let Some(error) = route_error {
         error
@@ -2629,7 +2673,15 @@ pub fn check_status(host: &str, touch_control: bool) -> LunaStatus {
 
             (false, true) => "UCD2 control reachable, but HTTP port 80 is unavailable".to_string(),
 
-            (false, false) => "Camera not reachable on ports 80/6666".to_string(),
+            (false, false) => {
+                let detail = http_result
+                    .and_then(Result::err)
+                    .map(|error| format!("：{error}"))
+                    .unwrap_or_default();
+                format!(
+                    "无法连接相机 {host}:80{detail}；请确认已连接相机 Wi-Fi，并在“系统设置 > 隐私与安全性 > 本地网络”中允许 Luna Studio"
+                )
+            }
         }
     };
 
@@ -3964,13 +4016,12 @@ pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::R
     let camera_host = parsed_url
         .host_str()
         .ok_or_else(|| anyhow!("相机媒体地址缺少主机"))?;
-    let mut client_builder = Client::builder()
+    let client_builder = Client::builder()
         .no_proxy()
         .connect_timeout(CAMERA_CONNECT_TIMEOUT)
         .timeout(Duration::from_secs(30));
-    if let Some(local) = camera_local_address(camera_host).map_err(anyhow::Error::msg)? {
-        client_builder = client_builder.local_address(local);
-    }
+    let client_builder =
+        bind_camera_http_client(client_builder, camera_host).map_err(anyhow::Error::msg)?;
 
     let mut req = client_builder
         .build()?

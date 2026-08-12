@@ -1645,15 +1645,12 @@ fn proxy_camera_media(
     }
     ensure_media_session(state, host)?;
 
-    let mut client_builder = reqwest::blocking::Client::builder()
+    let client_builder = reqwest::blocking::Client::builder()
         .no_proxy()
         .connect_timeout(std::time::Duration::from_secs(6))
         .timeout(std::time::Duration::from_secs(30 * 60));
-    if let Some(local) =
-        adapters::luna_local::camera_local_address(host).map_err(anyhow::Error::msg)?
-    {
-        client_builder = client_builder.local_address(local);
-    }
+    let client_builder = adapters::luna_local::bind_camera_http_client(client_builder, host)
+        .map_err(anyhow::Error::msg)?;
     let client = client_builder.build()?;
     let request_method = if method == "HEAD" {
         reqwest::Method::HEAD
@@ -1864,15 +1861,12 @@ fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
     let host = parsed
         .host_str()
         .ok_or_else(|| anyhow::anyhow!("缩略图地址缺少相机主机"))?;
-    let mut client_builder = reqwest::blocking::Client::builder()
+    let client_builder = reqwest::blocking::Client::builder()
         .no_proxy()
         .connect_timeout(std::time::Duration::from_secs(5))
         .timeout(std::time::Duration::from_secs(25));
-    if let Some(local) =
-        adapters::luna_local::camera_local_address(host).map_err(anyhow::Error::msg)?
-    {
-        client_builder = client_builder.local_address(local);
-    }
+    let client_builder = adapters::luna_local::bind_camera_http_client(client_builder, host)
+        .map_err(anyhow::Error::msg)?;
     let mut response = client_builder
         .build()?
         .get(url)

@@ -185,3 +185,18 @@ This file records repository-level operations so another model or developer can 
 - Final APK size is 8,348,301 bytes and SHA-256 is `503ca66a82ee975c25059b3d521308e7c4972e286b4bb99e7985935cde22a3be`.
 - Independently tested the downloaded ZIP container with no errors and confirmed `lib/arm64-v8a/libluna_mic_rust.so`, `assets/web/index.html` and the packaged official watermark resource directory are present.
 - Updated the root and Android README files with GitHub Actions build and artifact-download instructions.
+
+## 2026-08-12 - macOS camera interface binding correction
+
+- Re-investigated the reported Mac connection failure against the live machine instead of relying on the earlier TCP-port symptom.
+- Confirmed the Mac was currently on `192.168.124.98/24` rather than the camera's `192.168.42.x` hotspot network, while the route to `192.168.42.1` was still owned by VPN/proxy interface `utun4`.
+- Confirmed `/Applications/Luna Studio.app` already contained the earlier route-detection code, so the remaining fix required stronger socket routing rather than merely replacing an obviously old build.
+- Replaced address-only camera binding with a macOS interface record containing the physical interface name, IPv4 address and non-zero interface index.
+- Added native `IP_BOUND_IF` binding to every UCD2 TCP socket before the local-address bind and connect, preventing a VPN/proxy route from overriding the selected physical camera interface.
+- Added Reqwest interface binding to all camera HTTP clients, covering media proxying, thumbnail generation and resumable downloads as well as their existing local-address and no-proxy settings.
+- Preserved same-subnet validation and explicit `utun` exclusion, and added detailed connection errors that also point users to the macOS Local Network privacy permission.
+- Updated the macOS README guidance to require the camera hotspot and Luna Studio Local Network permission.
+- Ran `cargo check --bin html_app` and the complete macOS suite: 46 tests passed, 0 failed and 2 hardware/external-input tests remained explicitly ignored.
+- Rebuilt and installed the corrected package at `/Applications/Luna Studio.app`; strict deep-signature and Info.plist validation passed.
+- Verified the built and installed application executables are byte-identical with SHA-256 `97cd8638ec2cc6beaeeeac3b2d5fb01f88db4d2730a49d82b80fc02a021db274`.
+- Physical-camera verification remains pending because the Mac was still attached to `192.168.124.0/24` rather than the camera hotspot during this diagnostic session.
