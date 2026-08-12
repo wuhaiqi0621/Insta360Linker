@@ -103,7 +103,8 @@ Rust 相机协议、媒体下载、缩略图、实时取景解码、蓝牙和官
 src/adapters/luna_local.rs  UCD2 会话、控制命令、响应配对与 HEVC 拆流
 src/bin/html_app.rs         Windows WebView 主程序、macOS Rust 后端入口与 FFmpeg 实时解码
 macos/NativeApp/            macOS 纯 SwiftUI + Liquid Glass 前端
-web/index.html              Windows/Android 中文界面
+web/index.html              Windows/Android 中文界面与交互
+web/app.css                 Windows Mica/Android 响应式设计系统
 assets/apk_watermark/       APK 水印资源
 assets/ffmpeg/ffmpeg.exe    实时画面解码器
 reverse_apk/                APK/PCAP 证据、分析工具与交接记录

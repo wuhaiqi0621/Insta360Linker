@@ -52,6 +52,7 @@ use tao::window::WindowBuilder;
 use wry::{WebViewBuilder, http::Request};
 
 const HTML: &str = include_str!("../../web/index.html");
+const APP_CSS: &str = include_str!("../../web/app.css");
 const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/branding/Insta360Linker-glass.png");
 
 #[cfg(windows)]
@@ -1734,6 +1735,9 @@ fn handle_local_app_request(
     let path = target.split('?').next().unwrap_or(target);
     match path {
         "/" | "/index.html" => write_local_response(stream, 200, "text/html; charset=utf-8", html),
+        "/app.css" => {
+            write_local_response(stream, 200, "text/css; charset=utf-8", APP_CSS.as_bytes())
+        }
         "/app-icon.png" => write_local_response(stream, 200, "image/png", APP_ICON_PNG),
         "/favicon.ico" => write_local_response(stream, 204, "image/x-icon", &[]),
         _ if path.starts_with("/media/") => {

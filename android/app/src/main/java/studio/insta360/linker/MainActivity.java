@@ -102,7 +102,6 @@ public final class MainActivity extends Activity {
                     + "const p=document.getElementById('togglePreview');if(p)p.style.display='none';"
                     + "const d=document.getElementById('batchDownload');if(d)d.textContent='保存所选';"
                     + "const w=document.getElementById('exportWatermark');if(w)w.textContent='保存到相册';"
-                    + "const s=document.createElement('style');s.textContent='.android-host .camera-console{grid-template-columns:minmax(0,1fr)!important}.android-host .live-surface{display:none!important}';document.head.appendChild(s);"
                     + "const b=document.querySelector('.brand-copy span');if(b)b.textContent='移动影像工作台';";
                 view.evaluateJavascript(script, null);
             }
@@ -130,7 +129,7 @@ public final class MainActivity extends Activity {
         Window window = getWindow();
         boolean darkAppearance = (getResources().getConfiguration().uiMode
             & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        int chromeColor = darkAppearance ? 0xff111720 : 0xffe8eef6;
+        int chromeColor = darkAppearance ? 0xff151b1d : 0xffedf1f2;
         window.setStatusBarColor(chromeColor);
         window.setNavigationBarColor(chromeColor);
         int systemUi = 0;

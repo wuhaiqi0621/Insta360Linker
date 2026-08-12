@@ -1222,6 +1222,7 @@
       html.android-host .page-stack { margin: 0 8px 8px; }
     }
   </style>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <div class="app">
@@ -1231,17 +1232,17 @@
         <div class="brand-copy"><strong>Insta360Linker</strong><span>桌面媒体工作台</span></div>
       </div>
       <nav class="nav" aria-label="主导航">
-        <button class="nav-button active" data-page="camera" title="相机媒体">
-          <span class="nav-icon">▦</span><span class="nav-label">相机媒体</span>
+        <button class="nav-button active" data-page="camera" title="相机媒体" aria-current="page">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></span><span class="nav-label">相机媒体</span>
         </button>
         <button class="nav-button" data-page="capture" title="拍摄控制">
-          <span class="nav-icon">●</span><span class="nav-label">拍摄控制</span>
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="nav-label">拍摄控制</span>
         </button>
         <button class="nav-button" data-page="watermark" title="水印导出">
-          <span class="nav-icon">印</span><span class="nav-label">水印导出</span>
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M18 13.5V12a6 6 0 0 0-12 0v1.5a2 2 0 0 1-.59 1.41L4 16.33V19h16v-2.67l-1.41-1.42A2 2 0 0 1 18 13.5Z"/><path d="M9 7V2h6v5"/></svg></span><span class="nav-label">水印导出</span>
         </button>
         <button class="nav-button" data-page="mic" title="Mic Pro">
-          <span class="nav-icon">●</span><span class="nav-label">Mic Pro</span>
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect width="8" height="13" x="8" y="2" rx="4"/><path d="M18 10v2a6 6 0 0 1-12 0v-2"/><path d="M12 18v4"/><path d="M8 22h8"/></svg></span><span class="nav-label">Mic Pro</span>
         </button>
       </nav>
       <div class="sidebar-status">
@@ -1253,7 +1254,7 @@
     <main class="workspace">
       <header class="topbar">
         <div><h1 id="pageTitle">相机媒体</h1><p id="pageSubtitle">浏览、预览并下载 Luna Ultra 中的照片和视频</p></div>
-        <div class="topbar-actions"><button id="refreshTop" class="button icon" title="刷新相册">↻</button></div>
+        <div class="topbar-actions"><button id="refreshTop" class="button icon" title="刷新相册" aria-label="刷新相册"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button></div>
       </header>
 
       <div class="page-stack">
@@ -2156,8 +2157,18 @@
       }, { once: true });
       image.src = source;
       root.replaceChildren(image);
+      appendStorageBadge(root);
       appendVideoBadge(root);
       state.thumbnailObserver?.unobserve(root);
+    }
+
+    function appendStorageBadge(root) {
+      const label = root?.dataset.storageLabel;
+      if (!label) return;
+      const badge = document.createElement("span");
+      badge.className = "storage-badge";
+      badge.textContent = label;
+      root.appendChild(badge);
     }
 
     function appendVideoBadge(root) {
@@ -2171,6 +2182,7 @@
     function setThumbnailFallback(root) {
       if (!root) return;
       root.innerHTML = `<span class="preview-fallback">${root.classList.contains("video") ? "视频" : "图片"}</span>`;
+      appendStorageBadge(root);
       appendVideoBadge(root);
     }
 
@@ -2291,15 +2303,16 @@
                 ? `<img src="${state.thumbnailCache.get(thumbnailUrl)}" alt="" decoding="async">`
                 : '<span class="thumbnail-loading" aria-hidden="true"></span>')
             : `<span class="preview-fallback">${type === "video" ? "视频" : type === "image" ? "图片" : "·"}</span>`;
-          const visual = `${thumbnailVisual}${type === "video" ? '<span class="video-badge">▶</span>' : ""}`;
+          const storageBadge = `<span class="storage-badge">${escapeHtml(file.storage_label || "内部存储")}</span>`;
+          const visual = `${thumbnailVisual}${storageBadge}${type === "video" ? '<span class="video-badge">▶</span>' : ""}`;
           const card = document.createElement("article");
           card.className = "media-card" + (state.selected.has(file.url) ? " selected" : "");
           card.dataset.mediaUrl = file.url;
           card.innerHTML = `
-            <div class="media-visual ${type}"${thumbnailFile ? ` data-thumbnail-url="${escapeHtml(thumbnailUrl)}"` : ""}>${visual}</div>
+            <div class="media-visual ${type}" data-storage-label="${escapeHtml(file.storage_label || "内部存储")}"${thumbnailFile ? ` data-thumbnail-url="${escapeHtml(thumbnailUrl)}"` : ""}>${visual}</div>
             <div class="media-details">
               <strong>${escapeHtml(file.name || "未命名")}</strong>
-              <span>${escapeHtml(file.storage_label || "内部存储")} · ${escapeHtml(file.time || "")} · ${escapeHtml(file.size_text || "大小未知")}</span>
+              <div class="media-meta"><span>${escapeHtml(file.time || "时间未知")}</span><span>${escapeHtml(file.size_text || "大小未知")}</span></div>
             </div>
             <button class="media-check" title="选择">${state.selected.has(file.url) ? "✓" : ""}</button>`;
           const imageElement = card.querySelector(".media-visual img");
@@ -2874,8 +2887,14 @@
     document.querySelectorAll(".nav-button").forEach(button => {
       button.addEventListener("click", () => {
         const page = button.dataset.page;
-        document.querySelectorAll(".nav-button").forEach(item => item.classList.toggle("active", item === button));
+        document.querySelectorAll(".nav-button").forEach(item => {
+          const active = item === button;
+          item.classList.toggle("active", active);
+          if (active) item.setAttribute("aria-current", "page");
+          else item.removeAttribute("aria-current");
+        });
         document.querySelectorAll(".page").forEach(item => item.classList.toggle("active", item.id === `page-${page}`));
+        $(`page-${page}`).scrollTop = 0;
         $("pageTitle").textContent = pages[page][0];
         $("pageSubtitle").textContent = pages[page][1];
         $("refreshTop").style.display = page === "camera" ? "" : "none";

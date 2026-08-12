@@ -35,7 +35,7 @@ android {
 def prepareRuntimeAssets = tasks.register("prepareRuntimeAssets", Sync) {
     into(layout.buildDirectory.dir("generated/runtimeAssets"))
     from("../../web") {
-        include "index.html", "app-icon.png"
+        include "index.html", "app.css", "app-icon.png"
         into "web"
     }
     from("../../assets/apk_watermark") {

@@ -242,3 +242,29 @@ This file records repository-level operations so another model or developer can 
 - Rebuilt and installed `/Applications/Insta360Linker.app`, then visually verified that the full window has an opaque system background and that no desktop content leaks through the detail area.
 - Re-ran the standalone Swift 6.4 compile, complete macOS packaging, strict deep code-signature validation, Info.plist validation and dependency inspection; all passed and the SwiftUI frontend remains free of WebKit linkage.
 - Installed SHA-256 values after this correction: native SwiftUI frontend `945384919264843c445e5900a7f9f736830399d96dae0bba8988876cf84c7409`; Rust backend helper `e7627c98b236e9fc13d193d3792de9239b744e4af8a374db7aefd7d7786b8fed`.
+
+## 2026-08-12 - Windows and Android interface overhaul
+
+- Fast-forwarded the Windows workspace from `35df29c` to GitHub commit `ff29aa9` before editing; no local tracked changes were overwritten.
+- Audited the shared 3,210-line Web frontend, all page identifiers and event bindings, the Windows host-class injection, and the Android WebView injection before changing the UI.
+- Confirmed that current macOS builds use the separate native SwiftUI frontend, so this redesign is intentionally scoped to Windows and Android.
+- Added `web/app.css` as the final shared style layer, leaving existing command identifiers and camera, media, watermark, preview and Bluetooth behavior untouched.
+- Rebuilt the visual language around neutral Mica-aware surfaces, teal interaction color, compact 6-8px radii, clearer typography, stable spacing and stronger control opacity.
+- Replaced text-symbol navigation artwork with consistent inline stroke icons and added `aria-current` state updates for accessible page navigation.
+- Reworked Windows into a spacious desktop workbench with a 252px navigation rail, contained Mica surfaces, sticky media filters, denser image-first media cards, a larger live view, a dedicated capture rail and a sticky real watermark preview.
+- Reworked narrow layouts and Android into a touch-first interface with a fixed bottom tab bar, 44px controls, horizontal filter strips, two- or three-column incremental media grids, safe-area padding and full-screen media preview.
+- Added storage badges and separated capture time/file size metadata on media cards while preserving lazy thumbnails and the existing incremental `显示更多` renderer.
+- Preserved each storage badge when the lazy-thumbnail pipeline replaces its visual node or falls back after a thumbnail error, preventing the badge from disappearing after initial render.
+- Removed the Android runtime-injected layout override; host-specific preview hiding and single-column capture layout now live in the versioned shared stylesheet.
+- Updated Android system-bar colors to match the new neutral light and dark palettes.
+- Added `app.css` to both the Rust desktop asset server and Android generated asset package.
+- Rendered all four pages at 1440x900, 1024x768, 390x844 and 360x800 with Playwright/Edge; the first pass found no desktop overflow and isolated the mobile media toolbar as the only off-screen control group.
+- Replaced that mobile horizontal toolbar with a three-row responsive grid so all storage, media type, sort, density and refresh controls remain visible without sideways scrolling at 360px.
+- Extended visual validation to light and dark appearances: 24 page/viewport combinations across 1440x900, 1024x768, 390x844 and 360x800 completed with zero document-width or element-boundary overflow failures.
+- Passed `cargo fmt --all --check`, `cargo check --locked --bin Insta360Linker` and `cargo test --locked --bin Insta360Linker`; 51 tests passed, 0 failed and 4 hardware/system-registration tests remained explicitly ignored.
+- Built the Windows release executable with `cargo build --release --locked --bin Insta360Linker --target-dir target_daily` and built the Android ARM64 debug APK with the repository's F-drive Android toolchain; both builds completed successfully.
+- Verified the APK contains `assets/web/index.html`, `assets/web/app.css`, `assets/web/app-icon.png` and `lib/arm64-v8a/libinsta360_linker.so`.
+- Final Windows executable SHA-256: `8ee2921d6975f1ff68048b2ee4d9ae3685af7a30e43a6e02757691f6db4edda7`.
+- Final Windows virtual-camera DLL SHA-256: `cfedd345ac8ff2b797a638735e567f72b5800bf8701e0da9f05ad5ecc5403177`.
+- Final Android ARM64 debug APK SHA-256: `d19615f10b740cdcc3ddb507bebe285a8d3eba6278b51a73f964529e22b3f2ba`.
+- The visual-check script, 24 screenshots, JSON report, separate Windows target directory and Android intermediate output directories were designated temporary and removed after verification; only source changes and final deliverables remain.
