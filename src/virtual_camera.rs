@@ -142,7 +142,7 @@ fn spawn_frame_bridge_server(
         .set_nonblocking(true)
         .map_err(|error| anyhow::anyhow!("无法配置虚拟摄像机画面通道：{error}"))?;
     std::thread::Builder::new()
-        .name("luna-virtual-camera-frames".into())
+        .name("insta360linker-virtual-camera-frames".into())
         .spawn(move || {
             while !stop.load(Ordering::Acquire) {
                 match listener.accept() {
@@ -150,7 +150,7 @@ fn spawn_frame_bridge_server(
                         let client_frames = frames.clone();
                         let client_stop = stop.clone();
                         let _ = std::thread::Builder::new()
-                            .name("luna-virtual-camera-client".into())
+                            .name("insta360linker-virtual-camera-client".into())
                             .spawn(move || {
                                 let _ =
                                     serve_frame_bridge_client(&client_frames, &client_stop, stream);
@@ -200,7 +200,7 @@ fn serve_frame_bridge_client(
 
 fn spawn_frame_bridge_client(frames: Arc<FrameStore>) {
     let _ = std::thread::Builder::new()
-        .name("luna-virtual-camera-receiver".into())
+        .name("insta360linker-virtual-camera-receiver".into())
         .spawn(move || {
             loop {
                 match TcpStream::connect(FRAME_BRIDGE_ADDRESS) {
@@ -265,7 +265,7 @@ impl VirtualCameraController {
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let worker_frames = frames.clone();
         let worker = std::thread::Builder::new()
-            .name("luna-virtual-camera".into())
+            .name("insta360linker-virtual-camera".into())
             .spawn(move || virtual_camera_worker(worker_frames, command_rx, ready_tx))
             .map_err(|error| anyhow::anyhow!("创建虚拟摄像机服务失败：{error}"))?;
         match ready_rx.recv() {
@@ -296,7 +296,7 @@ impl VirtualCameraController {
 
     pub fn start(&self) -> anyhow::Result<String> {
         if self.started.load(Ordering::Acquire) {
-            return Ok("Luna Studio 虚拟摄像机已开启".into());
+            return Ok("Insta360Linker 虚拟摄像机已开启".into());
         }
 
         self.frames.set_enabled(true);
@@ -474,16 +474,16 @@ fn find_media_source_dll() -> anyhow::Result<PathBuf> {
         .parent()
         .ok_or_else(|| anyhow::anyhow!("程序目录不可用"))?;
     let mut candidates = vec![
-        parent.join("LunaVirtualCamera.dll"),
-        parent.join("luna_mic_rust.dll"),
+        parent.join("Insta360LinkerVirtualCamera.dll"),
+        parent.join("insta360_linker.dll"),
     ];
     if let Some(build_dir) = parent.parent() {
-        candidates.push(build_dir.join("luna_mic_rust.dll"));
+        candidates.push(build_dir.join("insta360_linker.dll"));
     }
     candidates
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or_else(|| anyhow::anyhow!("缺少 LunaVirtualCamera.dll"))
+        .ok_or_else(|| anyhow::anyhow!("缺少 Insta360LinkerVirtualCamera.dll"))
 }
 
 fn registered_media_source_path() -> Option<PathBuf> {
@@ -629,9 +629,9 @@ fn win32_result(result: WIN32_ERROR) -> anyhow::Result<()> {
 
 fn start_system_virtual_camera(camera: &mut Option<IMFVirtualCamera>) -> anyhow::Result<String> {
     if camera.is_some() {
-        return Ok("Luna Studio 虚拟摄像机已开启".into());
+        return Ok("Insta360Linker 虚拟摄像机已开启".into());
     }
-    let friendly_name: Vec<u16> = "Luna Studio Camera\0".encode_utf16().collect();
+    let friendly_name: Vec<u16> = "Insta360Linker Camera\0".encode_utf16().collect();
     let source_id: Vec<u16> = format!("{SOURCE_CLSID_TEXT}\0").encode_utf16().collect();
     let virtual_camera = unsafe {
         MFCreateVirtualCamera(
@@ -650,7 +650,7 @@ fn start_system_virtual_camera(camera: &mut Option<IMFVirtualCamera>) -> anyhow:
             .map_err(|error| virtual_camera_error("启动虚拟摄像机", error))?;
     }
     *camera = Some(virtual_camera);
-    Ok("Luna Studio 虚拟摄像机已开启".into())
+    Ok("Insta360Linker 虚拟摄像机已开启".into())
 }
 
 fn stop_system_virtual_camera(camera: &mut Option<IMFVirtualCamera>) {
@@ -1732,7 +1732,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "opens the system-registered Luna virtual camera and reads one frame"]
+    #[ignore = "opens the system-registered Insta360Linker virtual camera and reads one frame"]
     fn windows_registered_camera_returns_first_frame() {
         unsafe {
             CoInitializeEx(None, COINIT_MULTITHREADED).unwrap();

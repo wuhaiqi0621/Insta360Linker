@@ -1,4 +1,4 @@
-package studio.luna.linker;
+package studio.insta360.linker;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -197,7 +197,7 @@ public final class MainActivity extends Activity {
                             "path",
                             new File(
                                 watermarkExports,
-                                "Luna_watermarked_" + System.currentTimeMillis() + watermarkOutputExtension(input)
+                                "Insta360Linker_watermarked_" + System.currentTimeMillis() + watermarkOutputExtension(input)
                             ).getAbsolutePath()
                         );
                         sendSuccess(request, output);
@@ -340,7 +340,7 @@ public final class MainActivity extends Activity {
         HttpURLConnection connection = (HttpURLConnection) new URL(sourceUrl).openConnection();
         connection.setConnectTimeout(6000);
         connection.setReadTimeout(25000);
-        connection.setRequestProperty("User-Agent", "Insta360 Linker Android/0.1");
+        connection.setRequestProperty("User-Agent", "Insta360Linker Android/0.1");
         connection.setRequestProperty("Accept-Encoding", "identity");
         connection.connect();
         if (connection.getResponseCode() >= 400) {
@@ -372,7 +372,7 @@ public final class MainActivity extends Activity {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             Map<String, String> headers = new HashMap<>();
-            headers.put("User-Agent", "Insta360 Linker Android/0.1");
+            headers.put("User-Agent", "Insta360Linker Android/0.1");
             retriever.setDataSource(sourceUrl, headers);
             Bitmap frame = retriever.getFrameAtTime(200_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             if (frame == null) {
@@ -501,7 +501,7 @@ public final class MainActivity extends Activity {
 
     private void deliverResponse(String response) {
         runOnUiThread(() -> webView.evaluateJavascript(
-            "window.LunaBridge&&window.LunaBridge.receive(" + response + ");",
+            "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.receive(" + response + ");",
             null
         ));
     }

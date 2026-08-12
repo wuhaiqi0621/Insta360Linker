@@ -2,7 +2,7 @@
 set -eu
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-APP_NAME="Luna Studio"
+APP_NAME="Insta360Linker"
 APP_DIR="$PROJECT_DIR/dist/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -30,7 +30,7 @@ if [ ! -x "$FFMPEG_BINARY" ]; then
     esac
 
     FFMPEG_URL="https://ffmpeg.martin-riedl.de/redirect/latest/macos/$FFMPEG_ARCH/release/ffmpeg.zip"
-    FFMPEG_ARCHIVE="${TMPDIR:-/tmp}/luna-studio-ffmpeg.zip"
+    FFMPEG_ARCHIVE="${TMPDIR:-/tmp}/insta360linker-ffmpeg.zip"
     mkdir -p "$PROJECT_DIR/assets/ffmpeg"
     curl -fL --retry 5 --retry-delay 2 "$FFMPEG_URL" -o "$FFMPEG_ARCHIVE"
     unzip -o "$FFMPEG_ARCHIVE" -d "$PROJECT_DIR/assets/ffmpeg"
@@ -38,10 +38,10 @@ if [ ! -x "$FFMPEG_BINARY" ]; then
 fi
 
 cd "$PROJECT_DIR"
-cargo build --release --bin html_app
+cargo build --release --bin Insta360Linker
 
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/ffmpeg" "$RESOURCES_DIR/apk_watermark"
-cp "$PROJECT_DIR/target/release/html_app" "$MACOS_DIR/$APP_NAME"
+cp "$PROJECT_DIR/target/release/Insta360Linker" "$MACOS_DIR/$APP_NAME"
 cp "$PROJECT_DIR/macos/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$ICON_ASSETS/Assets.car" "$RESOURCES_DIR/Assets.car"
 cp "$ICON_ASSETS/Insta360Linker.icns" "$RESOURCES_DIR/Insta360Linker.icns"

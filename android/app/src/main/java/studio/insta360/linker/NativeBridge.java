@@ -1,8 +1,8 @@
-package studio.luna.linker;
+package studio.insta360.linker;
 
 final class NativeBridge {
     static {
-        System.loadLibrary("luna_mic_rust");
+        System.loadLibrary("insta360_linker");
     }
 
     private NativeBridge() {}

@@ -44,8 +44,8 @@ try {
 
     $jniDirectory = Join-Path $PSScriptRoot "app\src\main\jniLibs\arm64-v8a"
     New-Item -ItemType Directory -Force -Path $jniDirectory | Out-Null
-    Copy-Item -LiteralPath (Join-Path $repoRoot "target\aarch64-linux-android\release\libluna_mic_rust.so") `
-        -Destination (Join-Path $jniDirectory "libluna_mic_rust.so") -Force
+    Copy-Item -LiteralPath (Join-Path $repoRoot "target\aarch64-linux-android\release\libinsta360_linker.so") `
+        -Destination (Join-Path $jniDirectory "libinsta360_linker.so") -Force
 
     Push-Location $PSScriptRoot
     try {

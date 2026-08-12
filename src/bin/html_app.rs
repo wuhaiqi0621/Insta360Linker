@@ -42,11 +42,25 @@ use tao::event::{Event, WindowEvent};
 
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 
+#[cfg(windows)]
+use tao::window::Icon;
+
 use tao::window::WindowBuilder;
 
 use wry::{WebViewBuilder, http::Request};
 
 const HTML: &str = include_str!("../../web/index.html");
+
+#[cfg(windows)]
+fn app_window_icon() -> Option<Icon> {
+    let image = image::load_from_memory(include_bytes!(
+        "../../assets/branding/Insta360Linker-glass.png"
+    ))
+    .ok()?
+    .into_rgba8();
+    let (width, height) = image.dimensions();
+    Icon::from_rgba(image.into_raw(), width, height).ok()
+}
 
 #[derive(Clone)]
 
@@ -474,12 +488,15 @@ fn main() -> wry::Result<()> {
         virtual_camera_error,
     };
 
-    let window = WindowBuilder::new()
-        .with_title("Luna \u{63a7}\u{5236}\u{53f0}")
+    let window_builder = WindowBuilder::new()
+        .with_title("Insta360Linker")
         .with_inner_size(LogicalSize::new(1180.0, 780.0))
-        .with_min_inner_size(LogicalSize::new(760.0, 560.0))
-        .build(&event_loop)
-        .unwrap();
+        .with_min_inner_size(LogicalSize::new(760.0, 560.0));
+
+    #[cfg(windows)]
+    let window_builder = window_builder.with_window_icon(app_window_icon());
+
+    let window = window_builder.build(&event_loop).unwrap();
 
     let mica_surface_ready = prepare_mica_surface(&window);
     let mica_enabled = mica_surface_ready && apply_mica(&window);
@@ -693,8 +710,9 @@ fn spawn_preview_decoder(
                 let jpeg: Vec<u8> = jpeg_buffer.drain(..end + 2).collect();
                 virtual_camera_frames.update_jpeg(&jpeg);
                 let payload = json!({ "data": BASE64_STANDARD.encode(jpeg) });
-                let script =
-                    format!("window.LunaBridge && window.LunaBridge.previewImage({payload});");
+                let script = format!(
+                    "window.Insta360LinkerBridge && window.Insta360LinkerBridge.previewImage({payload});"
+                );
                 if proxy.send_event(UserEvent::Js(script)).is_err() {
                     let _ = child.kill();
                     let _ = input_thread.join();
@@ -722,7 +740,9 @@ fn find_bytes(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
 
 fn send_preview_error(proxy: &EventLoopProxy<UserEvent>, message: &str) {
     let payload = serde_json::to_string(message).unwrap_or_else(|_| "\"实时预览不可用\"".into());
-    let script = format!("window.LunaBridge && window.LunaBridge.previewError({payload});");
+    let script = format!(
+        "window.Insta360LinkerBridge && window.Insta360LinkerBridge.previewError({payload});"
+    );
     let _ = proxy.send_event(UserEvent::Js(script));
 }
 
@@ -845,7 +865,7 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
             Ok(json!({
                 "available": available,
                 "active": active,
-                "name": "Luna Studio Camera",
+                "name": "Insta360Linker Camera",
                 "error": state.virtual_camera_error.as_deref().map(|message| message.as_str()),
             }))
         }
@@ -865,7 +885,7 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
             Ok(json!({
                 "message": message,
                 "active": true,
-                "name": "Luna Studio Camera",
+                "name": "Insta360Linker Camera",
             }))
         }
 
@@ -884,7 +904,7 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
             Ok(json!({
                 "message": message,
                 "active": false,
-                "name": "Luna Studio Camera",
+                "name": "Insta360Linker Camera",
             }))
         }
 
@@ -1659,7 +1679,7 @@ fn proxy_camera_media(
     };
     let mut request = client
         .request(request_method, url)
-        .header(reqwest::header::USER_AGENT, "Luna Studio/0.4")
+        .header(reqwest::header::USER_AGENT, "Insta360Linker/0.4")
         .header(reqwest::header::ACCEPT, "*/*")
         .header(reqwest::header::ACCEPT_ENCODING, "identity");
     if let Some(range) = range {
@@ -1808,7 +1828,8 @@ fn send_response(proxy: &EventLoopProxy<UserEvent>, response: UiResponse) {
         })
         .to_string()
     });
-    let script = format!("window.LunaBridge && window.LunaBridge.receive({payload});");
+    let script =
+        format!("window.Insta360LinkerBridge && window.Insta360LinkerBridge.receive({payload});");
     let _ = proxy.send_event(UserEvent::Js(script));
 }
 
@@ -1849,7 +1870,7 @@ fn gallery_thumbnail_cache_dir() -> anyhow::Result<PathBuf> {
         return Ok(PathBuf::from(user_home)
             .join("Library")
             .join("Caches")
-            .join("Luna Studio")
+            .join("Insta360Linker")
             .join("gallery-thumbnails"));
     }
 
@@ -1870,7 +1891,7 @@ fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
     let mut response = client_builder
         .build()?
         .get(url)
-        .header(reqwest::header::USER_AGENT, "Luna Studio/0.3")
+        .header(reqwest::header::USER_AGENT, "Insta360Linker/0.3")
         .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()?
         .error_for_status()?;

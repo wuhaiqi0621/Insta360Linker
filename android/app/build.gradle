@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace "studio.luna.linker"
+    namespace "studio.insta360.linker"
     compileSdk 36
 
     defaultConfig {
-        applicationId "studio.luna.linker"
+        applicationId "studio.insta360.linker"
         minSdk 26
         targetSdk 36
         versionCode 1

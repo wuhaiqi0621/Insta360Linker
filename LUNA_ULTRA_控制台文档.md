@@ -133,8 +133,8 @@ luna_control_apk_only_ui/
 
 ```powershell
 cd F:\luna_control_apk_only_ui
-cargo build --release --bin html_app
-cargo run --release --bin html_app
+cargo build --release --bin Insta360Linker
+cargo run --release --bin Insta360Linker
 ```
 
 ### 使用流程
@@ -144,7 +144,7 @@ cargo run --release --bin html_app
    - 默认网关：192.168.42.1
 
 2. **启动应用**
-   - 运行 `html_app.exe`
+   - 运行 `Insta360Linker.exe`
 
 3. **控制相机**
    - 选择拍摄模式

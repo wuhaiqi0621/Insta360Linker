@@ -1,6 +1,6 @@
 # FFmpeg Runtime
 
-Luna Studio expects the Windows FFmpeg executable at:
+Insta360Linker expects the Windows FFmpeg executable at:
 
 ```text
 assets/ffmpeg/ffmpeg.exe

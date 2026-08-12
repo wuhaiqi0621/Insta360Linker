@@ -5,11 +5,11 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>zh_CN</string>
     <key>CFBundleDisplayName</key>
-    <string>Luna Studio</string>
+    <string>Insta360Linker</string>
     <key>CFBundleExecutable</key>
-    <string>Luna Studio</string>
+    <string>Insta360Linker</string>
     <key>CFBundleIdentifier</key>
-    <string>studio.luna.linker</string>
+    <string>studio.insta360.linker</string>
     <key>CFBundleIconFile</key>
     <string>Insta360Linker</string>
     <key>CFBundleIconName</key>
@@ -17,7 +17,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Luna Studio</string>
+    <string>Insta360Linker</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

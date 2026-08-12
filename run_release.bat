@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-start "" "%~dp0LunaStudio.exe"
+start "" "%~dp0Insta360Linker.exe"
 

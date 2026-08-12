@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Luna Studio</title>
+  <title>Insta360Linker</title>
   <style>
     :root {
       color-scheme: light;
@@ -844,7 +844,7 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">L</div>
-        <div class="brand-copy"><strong>Luna Studio</strong><span>桌面媒体工作台</span></div>
+        <div class="brand-copy"><strong>Insta360Linker</strong><span>桌面媒体工作台</span></div>
       </div>
       <nav class="nav" aria-label="主导航">
         <button class="nav-button active" data-page="camera" title="相机媒体">
@@ -993,7 +993,7 @@
                 </div>
                 <div id="virtualCameraControl" class="virtual-camera-control">
                   <div class="virtual-camera-copy">
-                    <strong>Luna Studio Camera</strong>
+                    <strong>Insta360Linker Camera</strong>
                     <span id="virtualCameraStatus">正在检查系统支持</span>
                   </div>
                   <button id="toggleVirtualCamera" class="button subtle" disabled>开启</button>
@@ -2244,7 +2244,7 @@
       }
     }
 
-    window.LunaBridge = {
+    window.Insta360LinkerBridge = {
       receive(response) {
         const res = typeof response === "string" ? JSON.parse(response) : response;
         if (res.command === "media_thumbnail") {
@@ -2401,7 +2401,7 @@
         } else if (res.command === "virtual_camera_start") {
           state.virtualCameraActive = true;
           updateCaptureUi();
-          showToast(`${data.name || "Luna Studio Camera"} 已开启`);
+          showToast(`${data.name || "Insta360Linker Camera"} 已开启`);
         } else if (res.command === "virtual_camera_stop") {
           state.virtualCameraActive = false;
           updateCaptureUi();

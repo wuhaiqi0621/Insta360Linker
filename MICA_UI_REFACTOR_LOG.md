@@ -1,8 +1,8 @@
 ﻿# Mica UI 重构日志
 
 项目：F:\Insta360onWin
-目标：为 Luna Studio 添加/完善 Windows 11 原生 Mica 背景效果，并全面适配前端 UI 以配合 Mica。
-当前入口：run_release.bat -> LunaStudio.exe（即 html_app 二进制）。
+目标：为 Insta360Linker 添加/完善 Windows 11 原生 Mica 背景效果，并全面适配前端 UI 以配合 Mica。
+当前入口：run_release.bat -> Insta360Linker.exe（由 src/bin/html_app.rs 构建）。
 
 ## 计划
 
@@ -20,4 +20,4 @@
 - 当前 src/bin/html_app.rs 已包含 apply_mica 函数，使用 DWMWA_SYSTEMBACKDROP_TYPE + DWMSBT_MAINWINDOW 实现 Mica，并已在 WindowEvent::ThemeChanged 时重应用。
 - 当前 web/index.html 已具备透明背景、backdrop-filter 毛玻璃、明暗主题变量。
 - 存在问题：部分区域（camera-console、预览弹窗、水印演示区）仍使用硬编码不透明深色背景，破坏 Mica 效果；整体透明度与对比度仍可优化。
-- 决定：以 html_app 为主入口进行改造，不改动 eframe 版 src/main.rs（README 说明当前日用版本为 html_app）。
+- 决定：以 src/bin/html_app.rs 为主入口进行改造，不改动 eframe 版 src/main.rs。

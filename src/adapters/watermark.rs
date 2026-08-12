@@ -1295,7 +1295,10 @@ fn temporary_watermark_path(options: &WatermarkOptions, style: &WatermarkStyle) 
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    parent.join(format!(".luna-watermark-{}-{timestamp}.png", style.id))
+    parent.join(format!(
+        ".insta360linker-watermark-{}-{timestamp}.png",
+        style.id
+    ))
 }
 
 #[cfg(test)]

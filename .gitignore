@@ -5,9 +5,9 @@
 **/target/
 
 # Packaged Windows binaries and runtime state
-/LunaStudio.exe
-/LunaVirtualCamera.dll
-/LunaStudio.exe.WebView2/
+/Insta360Linker.exe
+/Insta360LinkerVirtualCamera.dll
+/Insta360Linker.exe.WebView2/
 /data/gallery-thumbnails/
 *.pdb
 *.ilk

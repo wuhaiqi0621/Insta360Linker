@@ -1,4 +1,4 @@
-# Insta360 Linker for Android
+# Insta360Linker for Android
 
 The Android app uses a native Java WebView host and the same HTML UI as the Windows build. Camera protocol handling, media sessions, capture controls and photo watermark rendering run in the shared Rust library through JNI.
 

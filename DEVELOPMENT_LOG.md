@@ -1,4 +1,4 @@
-# Luna Studio Development Log
+# Insta360Linker Development Log
 
 This file records repository-level operations so another model or developer can continue the work without reconstructing the local state.
 
@@ -200,3 +200,17 @@ This file records repository-level operations so another model or developer can 
 - Rebuilt and installed the corrected package at `/Applications/Luna Studio.app`; strict deep-signature and Info.plist validation passed.
 - Verified the built and installed application executables are byte-identical with SHA-256 `97cd8638ec2cc6beaeeeac3b2d5fb01f88db4d2730a49d82b80fc02a021db274`.
 - Physical-camera verification remains pending because the Mac was still attached to `192.168.124.0/24` rather than the camera hotspot during this diagnostic session.
+
+## 2026-08-12 - Complete Insta360Linker rename and cross-platform glass icon
+
+- Renamed the product throughout the active macOS, Windows, Android and Web UI surfaces to the exact display name `Insta360Linker`, while preserving `Luna Ultra`, `Luna Moment` and UCD2 names that identify camera models, media features or protocols.
+- Renamed the Rust package to `insta360_linker` and the desktop Cargo binary target to `Insta360Linker`, so Windows now produces `Insta360Linker.exe` and macOS packages an `Insta360Linker` executable.
+- Renamed the macOS bundle to `Insta360Linker.app`, changed its identifier to `studio.insta360.linker`, updated application/cache/user-agent strings, and retained the Xcode 27 compiled `Assets.car` native Liquid Glass catalog plus `.icns` compatibility fallback.
+- Exported `assets/branding/Insta360Linker-glass.png` directly from the user-provided Icon Composer source with Apple `ictool`; generated the Windows `.ico` and Android density PNGs from that same rendered glass artwork rather than recreating the design.
+- Added Windows executable metadata/icon compilation and a matching native window icon; renamed the virtual camera display name, helper DLL lookup and runtime thread labels to `Insta360Linker`.
+- Changed the Android namespace/application id to `studio.insta360.linker`, renamed its Java/JNI package and Rust library to `libinsta360_linker.so`, changed the launcher label to `Insta360Linker`, and replaced the former adaptive placeholder vector with static glass PNGs for all five Android densities.
+- Renamed the JavaScript host bridge to `window.Insta360LinkerBridge`, updated both desktop and Android dispatchers, updated build scripts/workflow verification paths, executable launch scripts and current documentation.
+- Ran `cargo check --bin Insta360Linker` and the complete locked macOS suite: 46 tests passed, 0 failed and 2 physical-hardware/external-input tests remained explicitly ignored.
+- Built and ad-hoc signed `dist/Insta360Linker.app`; strict deep-signature validation passed, `Info.plist` reports the new name/identifier, the native icon resources and all 39 official watermark files are present, and the executable SHA-256 is `2b20bf73e2c97fa4c8de7dd98d5f827eada8904c24e57b763e5caa3483d72ba8`.
+- Installed and successfully launched `/Applications/Insta360Linker.app`. Moved the obsolete `/Applications/Luna Studio.app` bundle to `~/.Trash/Luna Studio.app`, where it remains recoverable.
+- Static branding asset SHA-256 values: `Insta360Linker-glass.png` is `9bb94d211849760ee87473b801aad4466827e400477891d1cc948154aefa8dd4`; `Insta360Linker.ico` is `76dae6e5e0de1b4de6e3f015aa59cffb97b7630bdcdba0008fc7eb6872221385`.

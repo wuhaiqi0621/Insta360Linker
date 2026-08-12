@@ -1,1 +1,1 @@
--keep class studio.luna.linker.NativeBridge { *; }
+-keep class studio.insta360.linker.NativeBridge { *; }

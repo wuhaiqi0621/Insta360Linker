@@ -1,7 +1,13 @@
 [package]
-name = "luna_mic_rust"
+name = "insta360_linker"
 version = "0.1.0"
 edition = "2024"
+autobins = false
+build = "build.rs"
+
+[[bin]]
+name = "Insta360Linker"
+path = "src/bin/html_app.rs"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -50,3 +56,6 @@ socket2 = { version = "0.6", features = ["all"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+
+[build-dependencies]
+winresource = "0.1.31"

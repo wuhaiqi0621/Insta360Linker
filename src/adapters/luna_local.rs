@@ -834,7 +834,7 @@ impl LunaAuthSession {
                 &build_camera_client_registration_body(),
                 Duration::from_secs(6),
             )
-            .context("登记 Luna Studio 媒体客户端失败")?;
+            .context("登记 Insta360Linker 媒体客户端失败")?;
             let epoch_seconds = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .context("读取系统时间失败")?
@@ -1344,7 +1344,7 @@ impl CameraControlSession {
                 let registration_body = build_camera_client_registration_body();
                 session
                     .execute(CAMERA_CLIENT_REGISTER_COMMAND, &registration_body)
-                    .context("登记 Luna Studio 相机客户端失败")?;
+                    .context("登记 Insta360Linker 相机客户端失败")?;
                 let epoch_seconds = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .context("读取系统时间失败")?
@@ -2679,7 +2679,7 @@ pub fn check_status(host: &str, touch_control: bool) -> LunaStatus {
                     .map(|error| format!("：{error}"))
                     .unwrap_or_default();
                 format!(
-                    "无法连接相机 {host}:80{detail}；请确认已连接相机 Wi-Fi，并在“系统设置 > 隐私与安全性 > 本地网络”中允许 Luna Studio"
+                    "无法连接相机 {host}:80{detail}；请确认已连接相机 Wi-Fi，并在“系统设置 > 隐私与安全性 > 本地网络”中允许 Insta360Linker"
                 )
             }
         }
@@ -4026,7 +4026,7 @@ pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::R
     let mut req = client_builder
         .build()?
         .get(file_url)
-        .header(USER_AGENT, "Luna Mic Control NG/0.2")
+        .header(USER_AGENT, "Insta360Linker/0.2")
         .header(ACCEPT_ENCODING, "identity");
 
     if existing > 0 {

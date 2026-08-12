@@ -135,7 +135,7 @@ impl AppState {
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.heading("Luna 控制台");
+                        ui.heading("Insta360Linker");
                         ui.label(
                             egui::RichText::new("连接 Luna Ultra、管理素材、添加水印")
                                 .color(egui::Color32::from_rgb(58, 69, 86)),
@@ -786,13 +786,13 @@ fn configure_fonts(ctx: &egui::Context) {
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Luna 控制台")
+            .with_title("Insta360Linker")
             .with_inner_size([1180.0, 780.0])
             .with_min_inner_size([980.0, 680.0]),
         ..Default::default()
     };
     eframe::run_native(
-        "Luna 控制台",
+        "Insta360Linker",
         options,
         Box::new(|cc| {
             configure_fonts(&cc.egui_ctx);

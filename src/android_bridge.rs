@@ -135,7 +135,7 @@ fn default_media_storage() -> String {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_studio_luna_linker_NativeBridge_nativeInit(
+pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativeInit(
     mut env: JNIEnv,
     _class: JClass,
     files_dir: JString,
@@ -149,7 +149,7 @@ pub extern "system" fn Java_studio_luna_linker_NativeBridge_nativeInit(
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_studio_luna_linker_NativeBridge_nativeHandle(
+pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativeHandle(
     mut env: JNIEnv,
     _class: JClass,
     request: JString,
