@@ -1274,6 +1274,7 @@
               <div class="library-actions">
                 <button id="selectVisible" class="button">全选当前</button>
                 <button id="clearSelection" class="button subtle">取消选择</button>
+                <button id="watermarkSelected" class="button" disabled>添加水印</button>
                 <button id="batchDownload" class="button primary" disabled>下载所选</button>
               </div>
             </div>
@@ -1513,6 +1514,7 @@
   <div id="mediaContextMenu" class="context-menu" role="menu">
     <button id="contextPreview" role="menuitem"><span class="menu-icon">▶</span><span>预览</span></button>
     <button id="contextToggleSelect" role="menuitem"><span class="menu-icon">✓</span><span>选择</span></button>
+    <button id="contextWatermark" role="menuitem"><span class="menu-icon">印</span><span>添加水印</span></button>
     <button id="contextDownload" role="menuitem"><span class="menu-icon">↓</span><span>下载所选</span></button>
     <div class="context-menu-separator"></div>
     <button id="contextDelete" class="danger" role="menuitem"><span class="menu-icon">×</span><span>删除所选</span></button>
@@ -1553,6 +1555,7 @@
       density: "comfortable",
       pendingDownloadFiles: null,
       pendingWatermarkExport: null,
+      pendingCameraWatermarkUrl: null,
       busy: new Set(),
       toastTimer: null,
       controlReady: false,
@@ -1746,7 +1749,10 @@
       $("refreshTop").disabled = connecting;
       document.querySelectorAll("[data-storage]").forEach(button => { button.disabled = connecting; });
       const selectionCount = selectedFiles().length;
+      const watermarkSelection = selectionCount === 1 && watermarkSourceSupported(selectedFiles()[0]);
       $("batchDownload").disabled = downloading || deleting || selectionCount === 0;
+      $("watermarkSelected").disabled = state.busy.has("prepare_watermark_media") || !watermarkSelection;
+      $("watermarkSelected").textContent = state.busy.has("prepare_watermark_media") ? "正在载入原片…" : "添加水印";
       const downloadAction = mobileHost ? "保存所选" : "下载所选";
       $("batchDownload").textContent = downloading
         ? (mobileHost ? "正在保存…" : "正在下载…")
@@ -2093,7 +2099,16 @@
 
     function mediaProxyUrl(url) {
       const encoded = Array.from(new TextEncoder().encode(String(url || "")), byte => byte.toString(16).padStart(2, "0")).join("");
+      if (document.documentElement.classList.contains("android-host")) {
+        return `https://appassets.androidplatform.net/camera-media/${encoded}`;
+      }
       return `/media/${encoded}`;
+    }
+
+    function watermarkSourceSupported(file) {
+      if (!file) return false;
+      const kind = String(file.kind || "").toUpperCase();
+      return ["JPG", "JPEG", "PNG", "WEBP", "MP4", "MOV", "M4V"].includes(kind);
     }
 
     function videoPreviewCandidates(file) {
@@ -2441,6 +2456,7 @@
       const count = selectedFiles().length;
       $("contextToggleSelect").querySelector("span:last-child").textContent = state.selected.has(file.url) ? "取消选择" : "选择";
       $("contextDownload").querySelector("span:last-child").textContent = count > 1 ? `下载所选 (${count})` : "下载";
+      $("contextWatermark").disabled = !watermarkSourceSupported(file) || state.busy.has("prepare_watermark_media");
       $("contextDelete").querySelector("span:last-child").textContent = count > 1 ? `删除所选 (${count})` : "删除";
       $("contextDelete").disabled = state.busy.has("delete_media");
       const menu = $("mediaContextMenu");
@@ -2455,6 +2471,17 @@
       if (!files.length) return;
       state.pendingDownloadFiles = files;
       send("pick_download_dir");
+    }
+
+    function prepareCameraMediaForWatermark(file) {
+      if (!watermarkSourceSupported(file)) {
+        showToast("该相机素材格式暂不支持水印导出", true);
+        return;
+      }
+      state.pendingCameraWatermarkUrl = file.url;
+      closePreview();
+      hideMediaContextMenu();
+      send("prepare_watermark_media", { host: host(), url: file.url });
     }
 
     function requestDeleteSelected() {
@@ -2656,6 +2683,9 @@
         updateBusyState();
 
         if (!res.ok) {
+          if (res.command === "prepare_watermark_media") {
+            state.pendingCameraWatermarkUrl = null;
+          }
           if (res.command === "camera_gimbal_move") {
             state.gimbalInFlight = false;
             abortGimbalController();
@@ -2847,6 +2877,14 @@
             $("wmInput").value = data.path;
             syncWatermarkUi();
           }
+        } else if (res.command === "prepare_watermark_media") {
+          state.pendingCameraWatermarkUrl = null;
+          if (data.path) {
+            $("wmInput").value = data.path;
+            activatePage("watermark");
+            syncWatermarkUi();
+            showToast(data.message || "相机原片已载入水印工作区");
+          }
         } else if (res.command === "pick_watermark_output") {
           const exportPayload = state.pendingWatermarkExport;
           state.pendingWatermarkExport = null;
@@ -2884,21 +2922,24 @@
       }
     };
 
-    document.querySelectorAll(".nav-button").forEach(button => {
-      button.addEventListener("click", () => {
-        const page = button.dataset.page;
-        document.querySelectorAll(".nav-button").forEach(item => {
-          const active = item === button;
-          item.classList.toggle("active", active);
-          if (active) item.setAttribute("aria-current", "page");
-          else item.removeAttribute("aria-current");
-        });
-        document.querySelectorAll(".page").forEach(item => item.classList.toggle("active", item.id === `page-${page}`));
-        $(`page-${page}`).scrollTop = 0;
-        $("pageTitle").textContent = pages[page][0];
-        $("pageSubtitle").textContent = pages[page][1];
-        $("refreshTop").style.display = page === "camera" ? "" : "none";
+    function activatePage(page) {
+      const button = document.querySelector(`.nav-button[data-page="${page}"]`);
+      if (!button || !pages[page]) return;
+      document.querySelectorAll(".nav-button").forEach(item => {
+        const active = item === button;
+        item.classList.toggle("active", active);
+        if (active) item.setAttribute("aria-current", "page");
+        else item.removeAttribute("aria-current");
       });
+      document.querySelectorAll(".page").forEach(item => item.classList.toggle("active", item.id === `page-${page}`));
+      $(`page-${page}`).scrollTop = 0;
+      $("pageTitle").textContent = pages[page][0];
+      $("pageSubtitle").textContent = pages[page][1];
+      $("refreshTop").style.display = page === "camera" ? "" : "none";
+    }
+
+    document.querySelectorAll(".nav-button").forEach(button => {
+      button.addEventListener("click", () => activatePage(button.dataset.page));
     });
 
     $("connectCamera").addEventListener("click", loadMedia);
@@ -3186,6 +3227,14 @@
     $("contextDownload").addEventListener("click", () => {
       hideMediaContextMenu();
       downloadSelected();
+    });
+    $("watermarkSelected").addEventListener("click", () => {
+      const files = selectedFiles();
+      if (files.length === 1) prepareCameraMediaForWatermark(files[0]);
+    });
+    $("contextWatermark").addEventListener("click", () => {
+      const file = state.mediaByUrl.get(state.contextFileUrl);
+      if (file) prepareCameraMediaForWatermark(file);
     });
     $("contextDelete").addEventListener("click", requestDeleteSelected);
     $("cancelDelete").addEventListener("click", closeDeleteConfirm);

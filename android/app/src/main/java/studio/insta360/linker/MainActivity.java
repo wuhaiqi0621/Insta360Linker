@@ -15,6 +15,13 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
+import android.media.Image;
+import android.media.ImageReader;
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -22,7 +29,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.OpenableColumns;
 import android.provider.MediaStore;
 import android.util.Base64;
@@ -31,24 +40,43 @@ import android.view.Window;
 import android.window.OnBackInvokedDispatcher;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.BitmapOverlay;
+import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.StaticOverlaySettings;
+import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.Effects;
+import androidx.media3.transformer.ExportException;
+import androidx.media3.transformer.ExportResult;
+import androidx.media3.transformer.Transformer;
+
 import org.json.JSONObject;
 import org.json.JSONArray;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,14 +86,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@UnstableApi
 public final class MainActivity extends Activity {
     private static final int PICK_MEDIA_REQUEST = 2001;
     private static final int PICK_MOMENT_REQUEST = 2002;
     private static final int MAX_THUMBNAIL_SOURCE = 96 * 1024 * 1024;
+    private static final long PREVIEW_FRAME_INTERVAL_MS = 120;
 
     private final ExecutorService nativeExecutor = Executors.newFixedThreadPool(3);
+    private final AtomicBoolean previewPumpRunning = new AtomicBoolean(false);
     private WebView webView;
     private JSONObject pendingPickerRequest;
+    private Thread previewPumpThread;
+    private Transformer activeVideoTransformer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,11 +132,30 @@ public final class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 String script = "document.documentElement.classList.remove('native-liquid-glass','native-mica','no-native-surface','macos-host','windows-host');document.documentElement.classList.add('android-host');"
                     + "const v=document.getElementById('virtualCameraControl');if(v)v.style.display='none';"
-                    + "const p=document.getElementById('togglePreview');if(p)p.style.display='none';"
                     + "const d=document.getElementById('batchDownload');if(d)d.textContent='保存所选';"
                     + "const w=document.getElementById('exportWatermark');if(w)w.textContent='保存到相册';"
                     + "const b=document.querySelector('.brand-copy span');if(b)b.textContent='移动影像工作台';";
                 view.evaluateJavascript(script, null);
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if ("appassets.androidplatform.net".equalsIgnoreCase(uri.getHost())
+                    && uri.getPath() != null
+                    && uri.getPath().startsWith("/camera-media/")) {
+                    try {
+                        String encoded = uri.getPath().substring("/camera-media/".length());
+                        return openCameraMediaResponse(
+                            decodeHexUrl(encoded),
+                            request.getMethod(),
+                            request.getRequestHeaders()
+                        );
+                    } catch (Exception error) {
+                        return textResourceResponse(502, "相机媒体代理失败：" + error.getMessage());
+                    }
+                }
+                return super.shouldInterceptRequest(view, request);
             }
 
             @Override
@@ -123,6 +175,20 @@ public final class MainActivity extends Activity {
             );
         }
         webView.loadUrl("file:///android_asset/web/index.html");
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopPreviewPump();
+        if (activeVideoTransformer != null) {
+            activeVideoTransformer.cancel();
+            activeVideoTransformer = null;
+        }
+        nativeExecutor.shutdownNow();
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
     }
 
     private int configureSystemAppearance() {
@@ -164,15 +230,6 @@ public final class MainActivity extends Activity {
         } else {
             finish();
         }
-    }
-
-    @Override
-    protected void onDestroy() {
-        nativeExecutor.shutdownNow();
-        if (webView != null) {
-            webView.destroy();
-        }
-        super.onDestroy();
     }
 
     @Override
@@ -241,13 +298,23 @@ public final class MainActivity extends Activity {
                     case "media_thumbnail":
                         nativeExecutor.submit(() -> createThumbnailResponse(request));
                         return;
+                    case "watermark":
+                        JSONObject watermarkPayload = request.optJSONObject("payload");
+                        if (watermarkPayload != null
+                            && isVideoFile(watermarkPayload.optString("input"))) {
+                            nativeExecutor.submit(() -> exportAndroidVideoWatermark(request));
+                            return;
+                        }
+                        break;
                     case "scan_ble":
                         startBleScan(request);
                         return;
                     default:
                         nativeExecutor.submit(() -> {
                             String response = NativeBridge.nativeHandle(request.toString());
-                            deliverResponse(publishExportsToGallery(response));
+                            String published = publishExportsToGallery(response);
+                            updatePreviewPump(command, published);
+                            deliverResponse(published);
                         });
                 }
             } catch (Exception error) {
@@ -342,6 +409,504 @@ public final class MainActivity extends Activity {
             }
             startActivityForResult(intent, code);
         });
+    }
+
+    private WebResourceResponse openCameraMediaResponse(
+        String sourceUrl,
+        String method,
+        Map<String, String> requestHeaders
+    ) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(sourceUrl).openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(30 * 60 * 1000);
+        connection.setRequestMethod("HEAD".equalsIgnoreCase(method) ? "HEAD" : "GET");
+        connection.setRequestProperty("User-Agent", "Insta360Linker Android/0.2");
+        connection.setRequestProperty("Accept", "*/*");
+        connection.setRequestProperty("Accept-Encoding", "identity");
+        for (Map.Entry<String, String> header : requestHeaders.entrySet()) {
+            if ("range".equalsIgnoreCase(header.getKey())
+                || "if-range".equalsIgnoreCase(header.getKey())) {
+                connection.setRequestProperty(header.getKey(), header.getValue());
+            }
+        }
+        connection.connect();
+
+        int status = connection.getResponseCode();
+        String contentType = connection.getContentType();
+        String mime = contentType == null
+            ? mediaMimeType(sourceUrl, isVideoFile(sourceUrl))
+            : contentType.split(";", 2)[0].trim();
+        Map<String, String> responseHeaders = new HashMap<>();
+        copyResponseHeader(connection, responseHeaders, "Accept-Ranges");
+        copyResponseHeader(connection, responseHeaders, "Content-Length");
+        copyResponseHeader(connection, responseHeaders, "Content-Range");
+        copyResponseHeader(connection, responseHeaders, "ETag");
+        copyResponseHeader(connection, responseHeaders, "Last-Modified");
+        responseHeaders.put("Access-Control-Allow-Origin", "*");
+        responseHeaders.put("Cache-Control", "no-store");
+
+        InputStream source;
+        if ("HEAD".equalsIgnoreCase(method)) {
+            source = new ByteArrayInputStream(new byte[0]);
+        } else {
+            source = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            if (source == null) {
+                source = new ByteArrayInputStream(new byte[0]);
+            }
+        }
+        final InputStream responseStream = source;
+        InputStream closingStream = new FilterInputStream(responseStream) {
+            @Override
+            public void close() throws IOException {
+                try {
+                    super.close();
+                } finally {
+                    connection.disconnect();
+                }
+            }
+        };
+        return new WebResourceResponse(
+            mime,
+            null,
+            status,
+            httpReason(status),
+            responseHeaders,
+            closingStream
+        );
+    }
+
+    private void copyResponseHeader(
+        HttpURLConnection connection,
+        Map<String, String> destination,
+        String name
+    ) {
+        String value = connection.getHeaderField(name);
+        if (value != null && !value.isEmpty()) {
+            destination.put(name, value);
+        }
+    }
+
+    private WebResourceResponse textResourceResponse(int status, String message) {
+        byte[] data = message.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new WebResourceResponse(
+            "text/plain",
+            "utf-8",
+            status,
+            httpReason(status),
+            new HashMap<>(),
+            new ByteArrayInputStream(data)
+        );
+    }
+
+    private String decodeHexUrl(String encoded) throws IOException {
+        if (encoded.isEmpty() || (encoded.length() & 1) != 0) {
+            throw new IOException("媒体地址编码无效");
+        }
+        byte[] bytes = new byte[encoded.length() / 2];
+        try {
+            for (int index = 0; index < bytes.length; index++) {
+                bytes[index] = (byte) Integer.parseInt(encoded.substring(index * 2, index * 2 + 2), 16);
+            }
+            return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (NumberFormatException error) {
+            throw new IOException("媒体地址编码无效", error);
+        }
+    }
+
+    private String httpReason(int status) {
+        switch (status) {
+            case 200: return "OK";
+            case 206: return "Partial Content";
+            case 400: return "Bad Request";
+            case 403: return "Forbidden";
+            case 404: return "Not Found";
+            case 416: return "Range Not Satisfiable";
+            case 502: return "Bad Gateway";
+            default: return status >= 400 ? "Camera Media Error" : "Camera Media";
+        }
+    }
+
+    private void updatePreviewPump(String command, String responseText) {
+        try {
+            JSONObject response = new JSONObject(responseText);
+            if (!response.optBoolean("ok")) {
+                if ("camera_start_preview".equals(command)) {
+                    stopPreviewPump();
+                }
+                return;
+            }
+            if ("camera_start_preview".equals(command)) {
+                startPreviewPump();
+            } else if ("camera_stop_preview".equals(command)
+                || "disconnect_luna".equals(command)) {
+                stopPreviewPump();
+            }
+        } catch (Exception error) {
+            if ("camera_start_preview".equals(command)) {
+                deliverPreviewError("无法启动实时预览：" + error.getMessage());
+            }
+        }
+    }
+
+    private void startPreviewPump() {
+        if (!previewPumpRunning.compareAndSet(false, true)) {
+            return;
+        }
+        previewPumpThread = new Thread(this::runPreviewPump, "Insta360Linker-preview");
+        previewPumpThread.start();
+    }
+
+    private void stopPreviewPump() {
+        previewPumpRunning.set(false);
+        Thread thread = previewPumpThread;
+        previewPumpThread = null;
+        if (thread != null) {
+            thread.interrupt();
+        }
+    }
+
+    private void runPreviewPump() {
+        HandlerThread imageThread = new HandlerThread("Insta360Linker-preview-images");
+        ImageReader imageReader = null;
+        MediaCodec decoder = null;
+        try {
+            imageThread.start();
+            imageReader = ImageReader.newInstance(1280, 720, ImageFormat.YUV_420_888, 2);
+            final long[] lastFrameAt = {0L};
+            imageReader.setOnImageAvailableListener(reader -> {
+                try (Image image = reader.acquireLatestImage()) {
+                    if (image == null || !previewPumpRunning.get()) {
+                        return;
+                    }
+                    long now = SystemClock.elapsedRealtime();
+                    if (now - lastFrameAt[0] < PREVIEW_FRAME_INTERVAL_MS) {
+                        return;
+                    }
+                    lastFrameAt[0] = now;
+                    deliverPreviewImage(imageToJpeg(image));
+                } catch (Exception error) {
+                    deliverPreviewError("实时画面转换失败：" + error.getMessage());
+                }
+            }, new Handler(imageThread.getLooper()));
+
+            decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_HEVC);
+            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, 1280, 720);
+            format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 2 * 1024 * 1024);
+            if (Build.VERSION.SDK_INT >= 30) {
+                format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
+            }
+            decoder.configure(format, imageReader.getSurface(), null, 0);
+            decoder.start();
+
+            MediaCodec.BufferInfo outputInfo = new MediaCodec.BufferInfo();
+            long presentationTimeUs = 0L;
+            while (previewPumpRunning.get() && !Thread.currentThread().isInterrupted()) {
+                byte[] chunk = NativeBridge.nativePollPreview(250);
+                if (chunk == null || chunk.length == 0) {
+                    drainDecoder(decoder, outputInfo);
+                    continue;
+                }
+                int inputIndex = decoder.dequeueInputBuffer(50_000);
+                if (inputIndex < 0) {
+                    drainDecoder(decoder, outputInfo);
+                    continue;
+                }
+                ByteBuffer input = decoder.getInputBuffer(inputIndex);
+                if (input == null || input.capacity() < chunk.length) {
+                    decoder.queueInputBuffer(inputIndex, 0, 0, presentationTimeUs, 0);
+                    throw new IOException("相机预览帧超过系统解码器容量");
+                }
+                input.clear();
+                input.put(chunk);
+                decoder.queueInputBuffer(inputIndex, 0, chunk.length, presentationTimeUs, 0);
+                presentationTimeUs += 33_333L;
+                drainDecoder(decoder, outputInfo);
+            }
+        } catch (Exception error) {
+            if (previewPumpRunning.get()) {
+                deliverPreviewError("Android 实时预览解码失败：" + error.getMessage());
+            }
+        } finally {
+            previewPumpRunning.set(false);
+            if (decoder != null) {
+                try { decoder.stop(); } catch (Exception ignored) {}
+                decoder.release();
+            }
+            if (imageReader != null) {
+                imageReader.close();
+            }
+            imageThread.quitSafely();
+        }
+    }
+
+    private void drainDecoder(MediaCodec decoder, MediaCodec.BufferInfo outputInfo) {
+        while (true) {
+            int outputIndex = decoder.dequeueOutputBuffer(outputInfo, 0);
+            if (outputIndex >= 0) {
+                decoder.releaseOutputBuffer(outputIndex, true);
+                continue;
+            }
+            if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                continue;
+            }
+            break;
+        }
+    }
+
+    private byte[] imageToJpeg(Image image) throws IOException {
+        Rect crop = image.getCropRect();
+        int width = crop.width();
+        int height = crop.height();
+        if ((width & 1) != 0) width--;
+        if ((height & 1) != 0) height--;
+        byte[] nv21 = new byte[width * height * 3 / 2];
+        Image.Plane[] planes = image.getPlanes();
+        copyYPlane(planes[0], crop.left, crop.top, width, height, nv21);
+        copyChromaPlanes(planes[1], planes[2], crop.left, crop.top, width, height, nv21);
+        ByteArrayOutputStream output = new ByteArrayOutputStream(160 * 1024);
+        YuvImage yuv = new YuvImage(nv21, ImageFormat.NV21, width, height, null);
+        if (!yuv.compressToJpeg(new Rect(0, 0, width, height), 76, output)) {
+            throw new IOException("系统无法编码实时预览帧");
+        }
+        return output.toByteArray();
+    }
+
+    private void copyYPlane(
+        Image.Plane plane,
+        int cropLeft,
+        int cropTop,
+        int width,
+        int height,
+        byte[] output
+    ) {
+        ByteBuffer buffer = plane.getBuffer().duplicate();
+        int base = buffer.position();
+        int rowStride = plane.getRowStride();
+        int pixelStride = plane.getPixelStride();
+        int target = 0;
+        for (int y = 0; y < height; y++) {
+            int row = base + (cropTop + y) * rowStride + cropLeft * pixelStride;
+            for (int x = 0; x < width; x++) {
+                output[target++] = buffer.get(row + x * pixelStride);
+            }
+        }
+    }
+
+    private void copyChromaPlanes(
+        Image.Plane uPlane,
+        Image.Plane vPlane,
+        int cropLeft,
+        int cropTop,
+        int width,
+        int height,
+        byte[] output
+    ) {
+        ByteBuffer u = uPlane.getBuffer().duplicate();
+        ByteBuffer v = vPlane.getBuffer().duplicate();
+        int uBase = u.position();
+        int vBase = v.position();
+        int target = width * height;
+        for (int y = 0; y < height / 2; y++) {
+            int sourceY = cropTop / 2 + y;
+            int uRow = uBase + sourceY * uPlane.getRowStride();
+            int vRow = vBase + sourceY * vPlane.getRowStride();
+            for (int x = 0; x < width / 2; x++) {
+                int sourceX = cropLeft / 2 + x;
+                output[target++] = v.get(vRow + sourceX * vPlane.getPixelStride());
+                output[target++] = u.get(uRow + sourceX * uPlane.getPixelStride());
+            }
+        }
+    }
+
+    private void deliverPreviewImage(byte[] jpeg) {
+        String data = Base64.encodeToString(jpeg, Base64.NO_WRAP);
+        runOnUiThread(() -> webView.evaluateJavascript(
+            "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewImage({data:"
+                + JSONObject.quote(data) + "});",
+            null
+        ));
+    }
+
+    private void deliverPreviewError(String message) {
+        runOnUiThread(() -> webView.evaluateJavascript(
+            "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewError("
+                + JSONObject.quote(message) + ");",
+            null
+        ));
+    }
+
+    @androidx.media3.common.util.UnstableApi
+    private void exportAndroidVideoWatermark(JSONObject request) {
+        Bitmap sourceBitmap = null;
+        try {
+            JSONObject payload = request.getJSONObject("payload");
+            String input = payload.getString("input");
+            String output = payload.getString("output");
+            int[] dimensions = videoDimensions(input);
+
+            JSONObject planPayload = new JSONObject();
+            planPayload.put("width", dimensions[0]);
+            planPayload.put("height", dimensions[1]);
+            planPayload.put("style", payload.optString("style", "luna-ultra-cn"));
+            planPayload.put("position", payload.optString("position", "bottom-center"));
+            JSONObject planRequest = new JSONObject();
+            planRequest.put("id", 0);
+            planRequest.put("command", "watermark_video_plan");
+            planRequest.put("payload", planPayload);
+            JSONObject planResponse = new JSONObject(NativeBridge.nativeHandle(planRequest.toString()));
+            if (!planResponse.optBoolean("ok")) {
+                throw new IOException(planResponse.optString("error", "无法读取官方视频水印参数"));
+            }
+            JSONObject plan = planResponse.getJSONObject("data");
+            byte[] watermarkBytes = Base64.decode(plan.getString("data"), Base64.DEFAULT);
+            sourceBitmap = BitmapFactory.decodeByteArray(watermarkBytes, 0, watermarkBytes.length);
+            if (sourceBitmap == null) {
+                throw new IOException("官方视频水印资源无法解码");
+            }
+
+            int targetWidth = Math.max(1, Math.round(dimensions[0] * (float) plan.getDouble("width_ratio")));
+            int targetHeight = Math.max(
+                1,
+                Math.round(sourceBitmap.getHeight() * targetWidth / (float) sourceBitmap.getWidth())
+            );
+            Bitmap overlayBitmap = Bitmap.createScaledBitmap(sourceBitmap, targetWidth, targetHeight, true);
+            if (overlayBitmap != sourceBitmap) {
+                sourceBitmap.recycle();
+                sourceBitmap = null;
+            }
+
+            float xRatio = (float) plan.getDouble("x_ratio");
+            float bottomRatio = (float) plan.getDouble("bottom_ratio");
+            float centerX = xRatio + targetWidth / (2f * dimensions[0]);
+            float centerYFromBottom = bottomRatio + targetHeight / (2f * dimensions[1]);
+            float anchorX = Math.max(-1f, Math.min(1f, centerX * 2f - 1f));
+            float anchorY = Math.max(-1f, Math.min(1f, centerYFromBottom * 2f - 1f));
+            File outputFile = new File(output);
+            if (outputFile.exists() && !outputFile.delete()) {
+                throw new IOException("无法覆盖旧的水印导出文件");
+            }
+
+            Bitmap finalOverlayBitmap = overlayBitmap;
+            runOnUiThread(() -> startVideoWatermarkTransformer(
+                request,
+                input,
+                outputFile,
+                finalOverlayBitmap,
+                anchorX,
+                anchorY
+            ));
+        } catch (Exception error) {
+            if (sourceBitmap != null) {
+                sourceBitmap.recycle();
+            }
+            sendError(request, "视频水印导出失败：" + error.getMessage());
+        }
+    }
+
+    private int[] videoDimensions(String input) throws IOException {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(input);
+            int width = Integer.parseInt(
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+            );
+            int height = Integer.parseInt(
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+            );
+            String rotationText = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+            int rotation = rotationText == null ? 0 : Integer.parseInt(rotationText);
+            if (rotation == 90 || rotation == 270) {
+                int value = width;
+                width = height;
+                height = value;
+            }
+            if (width <= 0 || height <= 0) {
+                throw new IOException("无法识别视频尺寸");
+            }
+            return new int[]{width, height};
+        } catch (NumberFormatException error) {
+            throw new IOException("无法识别视频尺寸", error);
+        } finally {
+            retriever.release();
+        }
+    }
+
+    @androidx.media3.common.util.UnstableApi
+    private void startVideoWatermarkTransformer(
+        JSONObject request,
+        String input,
+        File output,
+        Bitmap overlayBitmap,
+        float anchorX,
+        float anchorY
+    ) {
+        try {
+            if (activeVideoTransformer != null) {
+                overlayBitmap.recycle();
+                sendError(request, "已有视频正在导出水印，请等待当前任务完成");
+                return;
+            }
+            StaticOverlaySettings settings = new StaticOverlaySettings.Builder()
+                .setOverlayFrameAnchor(0f, 0f)
+                .setBackgroundFrameAnchor(anchorX, anchorY)
+                .build();
+            BitmapOverlay bitmapOverlay = BitmapOverlay.createStaticBitmapOverlay(overlayBitmap, settings);
+            OverlayEffect overlayEffect = new OverlayEffect(Collections.singletonList(bitmapOverlay));
+            Effects effects = new Effects(
+                Collections.emptyList(),
+                Collections.singletonList(overlayEffect)
+            );
+            EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(
+                MediaItem.fromUri(Uri.fromFile(new File(input)))
+            ).setEffects(effects).build();
+
+            activeVideoTransformer = new Transformer.Builder(this)
+                .setVideoMimeType(MimeTypes.VIDEO_H264)
+                .addListener(new Transformer.Listener() {
+                    @Override
+                    public void onCompleted(Composition composition, ExportResult exportResult) {
+                        activeVideoTransformer = null;
+                        overlayBitmap.recycle();
+                        sendWatermarkExportSuccess(request, output);
+                    }
+
+                    @Override
+                    public void onError(
+                        Composition composition,
+                        ExportResult exportResult,
+                        ExportException exportException
+                    ) {
+                        activeVideoTransformer = null;
+                        overlayBitmap.recycle();
+                        output.delete();
+                        sendError(request, "视频水印导出失败：" + exportException.getMessage());
+                    }
+                })
+                .build();
+            activeVideoTransformer.start(editedMediaItem, output.getAbsolutePath());
+        } catch (Exception error) {
+            activeVideoTransformer = null;
+            overlayBitmap.recycle();
+            output.delete();
+            sendError(request, "视频水印导出失败：" + error.getMessage());
+        }
+    }
+
+    private void sendWatermarkExportSuccess(JSONObject request, File output) {
+        try {
+            JSONObject data = new JSONObject();
+            data.put("message", "水印文件已导出");
+            data.put("path", output.getAbsolutePath());
+            JSONObject response = new JSONObject();
+            response.put("id", request.optLong("id"));
+            response.put("command", "watermark");
+            response.put("ok", true);
+            response.put("data", data);
+            response.put("error", JSONObject.NULL);
+            deliverResponse(publishExportsToGallery(response.toString()));
+        } catch (Exception error) {
+            sendError(request, "保存视频水印失败：" + error.getMessage());
+        }
     }
 
     private void createThumbnailResponse(JSONObject request) {

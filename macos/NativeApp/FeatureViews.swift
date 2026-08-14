@@ -67,6 +67,10 @@ struct MediaLibraryView: View {
                                     .foregroundStyle(.secondary)
                                 ControlGroup {
                                     Button("取消选择") { model.selectedMedia.removeAll() }
+                                    if let item = model.selectedWatermarkMedia {
+                                        Button("添加水印") { model.prepareWatermark(from: item) }
+                                            .disabled(model.busy.contains("prepare_watermark_media"))
+                                    }
                                     Button("下载所选") { model.downloadSelected() }
                                     Button(role: .destructive) { model.confirmingDelete = true } label: {
                                         Label("删除所选", systemImage: "trash")
@@ -186,6 +190,13 @@ struct MediaCard: View {
             }
         }
         .onAppear { model.loadThumbnail(for: item) }
+        .contextMenu {
+            if item.supportsWatermark {
+                Button { model.prepareWatermark(from: item) } label: {
+                    Label("添加水印", systemImage: "signature")
+                }
+            }
+        }
     }
 }
 

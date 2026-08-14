@@ -186,6 +186,12 @@ struct MediaThumbnailPayload {
     media_type: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct PrepareWatermarkMediaPayload {
+    host: String,
+    url: String,
+}
+
 fn default_media_storage() -> String {
     "all".to_string()
 }
@@ -921,6 +927,22 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
                 "url": payload.url,
                 "mime": "image/jpeg",
                 "data": BASE64_STANDARD.encode(thumbnail),
+            }))
+        }
+
+        "prepare_watermark_media" => {
+            let payload: PrepareWatermarkMediaPayload = serde_json::from_value(req.payload)?;
+            ensure_media_session(&state, &payload.host)?;
+            adapters::luna_local::camera_path_from_url(&payload.host, &payload.url)?;
+
+            let output = cached_watermark_source_path(&payload.url)?;
+            if !output.is_file() || output.metadata().map(|meta| meta.len()).unwrap_or(0) == 0 {
+                adapters::luna_local::resume_download_authenticated(&payload.url, &output)?;
+            }
+            Ok(json!({
+                "message": "相机原片已载入水印工作区",
+                "path": output.display().to_string(),
+                "name": download_filename(&payload.url),
             }))
         }
 
@@ -2128,6 +2150,35 @@ fn download_filename(url: &str) -> String {
         .unwrap_or("camera_file");
 
     safe_path_component(raw, "camera_file")
+}
+
+fn cached_watermark_source_path(url: &str) -> anyhow::Result<PathBuf> {
+    let root = desktop_cache_root().join("watermark-sources");
+    std::fs::create_dir_all(&root)?;
+
+    let mut hasher = DefaultHasher::new();
+    url.hash(&mut hasher);
+    let file_name = format!("{:016x}-{}", hasher.finish(), download_filename(url));
+    Ok(root.join(file_name))
+}
+
+fn desktop_cache_root() -> PathBuf {
+    #[cfg(target_os = "windows")]
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(local_app_data)
+            .join("Insta360Linker")
+            .join("Cache");
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join("Library")
+            .join("Caches")
+            .join("Insta360Linker");
+    }
+
+    std::env::temp_dir().join("Insta360Linker")
 }
 
 fn download_root(value: Option<&str>) -> PathBuf {

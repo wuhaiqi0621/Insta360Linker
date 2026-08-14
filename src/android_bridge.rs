@@ -7,12 +7,13 @@ use anyhow::{Context, anyhow};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use jni::JNIEnv;
 use jni::objects::{JClass, JString};
-use jni::sys::jstring;
+use jni::sys::{jbyteArray, jint, jstring};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::SyncSender;
+use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Mutex, OnceLock, mpsc};
+use std::time::Duration;
 
 use watermark::WatermarkOptions;
 
@@ -20,16 +21,17 @@ struct AndroidState {
     media_session: Mutex<Option<luna_local::LunaAuthSession>>,
     camera_control: Mutex<Option<luna_local::CameraControlSession>>,
     preview_tx: SyncSender<luna_local::LivePreviewChunk>,
+    preview_rx: Mutex<Receiver<luna_local::LivePreviewChunk>>,
 }
 
 impl AndroidState {
     fn new() -> Self {
-        let (preview_tx, preview_rx) = mpsc::sync_channel(8);
-        std::thread::spawn(move || while preview_rx.recv().is_ok() {});
+        let (preview_tx, preview_rx) = mpsc::sync_channel(24);
         Self {
             media_session: Mutex::new(None),
             camera_control: Mutex::new(None),
             preview_tx,
+            preview_rx: Mutex::new(preview_rx),
         }
     }
 }
@@ -110,6 +112,12 @@ struct BatchDownloadItem {
 }
 
 #[derive(Debug, Deserialize)]
+struct PrepareWatermarkMediaPayload {
+    host: String,
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct WatermarkPayload {
     input: String,
     output: String,
@@ -170,6 +178,34 @@ pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativeHandle(
     });
     env.new_string(response)
         .map(|value| value.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
+#[derive(Debug, Deserialize)]
+struct VideoWatermarkPlanPayload {
+    width: u32,
+    height: u32,
+    position: String,
+    style: Option<String>,
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativePollPreview(
+    env: JNIEnv,
+    _class: JClass,
+    timeout_ms: jint,
+) -> jbyteArray {
+    let state = STATE.get_or_init(AndroidState::new);
+    let timeout = Duration::from_millis(timeout_ms.clamp(10, 1000) as u64);
+    let data = state
+        .preview_rx
+        .lock()
+        .expect("preview lock")
+        .recv_timeout(timeout)
+        .map(|chunk| chunk.data)
+        .unwrap_or_default();
+    env.byte_array_from_slice(&data)
+        .map(|array| array.into_raw())
         .unwrap_or(std::ptr::null_mut())
 }
 
@@ -352,9 +388,26 @@ fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
                 json!({"message": "云台速度已同步到相机", "level": payload.level, "response": response}),
             )
         }
-        "camera_start_preview" | "camera_stop_preview" => Err(anyhow!(
-            "Android 实时预览解码器正在适配，当前构建暂不提供实时取景"
-        )),
+        "camera_start_preview" => {
+            let payload: HostPayload = serde_json::from_value(req.payload)?;
+            drain_preview_queue(state);
+            let guard = camera_control_for(state, &payload.host)?;
+            let response = guard
+                .as_ref()
+                .context("相机控制会话尚未建立")?
+                .start_preview()?;
+            Ok(json!({"message": "实时预览已开启", "response": response}))
+        }
+        "camera_stop_preview" => {
+            let payload: HostPayload = serde_json::from_value(req.payload)?;
+            let guard = camera_control_for(state, &payload.host)?;
+            let response = guard
+                .as_ref()
+                .context("相机控制会话尚未建立")?
+                .stop_preview()?;
+            drain_preview_queue(state);
+            Ok(json!({"message": "实时预览已关闭", "response": response}))
+        }
         "virtual_camera_status" => Ok(json!({
             "available": false,
             "active": false,
@@ -389,8 +442,38 @@ fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
                 "failed": failed
             }))
         }
+        "prepare_watermark_media" => {
+            let payload: PrepareWatermarkMediaPayload = serde_json::from_value(req.payload)?;
+            ensure_media_session(state, &payload.host)?;
+            luna_local::camera_path_from_url(&payload.host, &payload.url)?;
+            let output = cached_watermark_source_path(&payload.url)?;
+            if !output.is_file() || output.metadata().map(|meta| meta.len()).unwrap_or(0) == 0 {
+                luna_local::resume_download_authenticated(&payload.url, &output)?;
+            }
+            Ok(json!({
+                "message": "相机原片已载入水印工作区",
+                "path": output.display().to_string(),
+                "name": download_filename(&payload.url),
+            }))
+        }
         "watermark_styles" => Ok(serde_json::to_value(watermark::styles())?),
         "watermark_frame_backgrounds" => Ok(serde_json::to_value(watermark::frame_backgrounds())?),
+        "watermark_video_plan" => {
+            let payload: VideoWatermarkPlanPayload = serde_json::from_value(req.payload)?;
+            let plan = watermark::video_watermark_plan(
+                payload.width,
+                payload.height,
+                payload.style.as_deref().unwrap_or("luna-ultra-cn"),
+                &payload.position,
+            )?;
+            Ok(json!({
+                "mime": "image/png",
+                "data": BASE64_STANDARD.encode(plan.image),
+                "width_ratio": plan.width_ratio,
+                "x_ratio": plan.x_ratio,
+                "bottom_ratio": plan.bottom_ratio,
+            }))
+        }
         "watermark_preview" => {
             let payload: WatermarkPreviewPayload = serde_json::from_value(req.payload)?;
             let preview = watermark::preview(
@@ -508,6 +591,11 @@ fn list_media_for(
         .list_files_for_storage(storage)
 }
 
+fn drain_preview_queue(state: &AndroidState) {
+    let receiver = state.preview_rx.lock().expect("preview lock");
+    while receiver.try_recv().is_ok() {}
+}
+
 fn download_filename(url: &str) -> String {
     let raw = url
         .split('?')
@@ -518,6 +606,21 @@ fn download_filename(url: &str) -> String {
         .filter(|part| !part.is_empty())
         .unwrap_or("camera_file");
     safe_component(raw, "camera_file")
+}
+
+fn cached_watermark_source_path(url: &str) -> anyhow::Result<PathBuf> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let root = PathBuf::from("cache").join("watermark-sources");
+    std::fs::create_dir_all(&root)?;
+    let mut hasher = DefaultHasher::new();
+    url.hash(&mut hasher);
+    Ok(root.join(format!(
+        "{:016x}-{}",
+        hasher.finish(),
+        download_filename(url)
+    )))
 }
 
 fn safe_component(value: &str, fallback: &str) -> String {

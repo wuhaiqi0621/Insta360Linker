@@ -448,8 +448,8 @@ html:not(.native-liquid-glass) .device-card { border-radius: 8px; background: va
 html:not(.native-liquid-glass) .device-icon { border-radius: 6px; }
 
 html.android-host .camera-console { grid-template-columns: minmax(0, 1fr); }
-html.android-host .live-surface { display: none; }
-html.android-host .capture-panel { border-left: 0; }
+html.android-host .live-surface { min-height: 0; aspect-ratio: 16 / 9; }
+html.android-host .capture-panel { border-top: 1px solid #28313d; border-left: 0; }
 
 html:not(.native-liquid-glass) .preview-backdrop { background: rgba(7, 12, 14, .8); backdrop-filter: blur(10px); }
 html:not(.native-liquid-glass) .preview-dialog { border: 1px solid rgba(255, 255, 255, .12); border-radius: 8px; }
@@ -618,7 +618,6 @@ html:not(.native-liquid-glass) .toast { border-radius: 8px; }
   html:not(.native-liquid-glass) .camera-console { grid-template-columns: 1fr; min-height: 0; }
   html:not(.native-liquid-glass) .live-surface { min-height: 0; aspect-ratio: 16 / 9; }
   html:not(.native-liquid-glass) .capture-panel { padding: 18px 16px; border-top: 1px solid #28313d; border-left: 0; }
-  html.android-host .capture-panel { border-top: 0; }
   html:not(.native-liquid-glass) .video-profile-grid { grid-template-columns: 1fr 1fr; }
   html:not(.native-liquid-glass) .gimbal-band { grid-template-columns: 1fr; gap: 24px; padding: 22px 0 0; }
   html:not(.native-liquid-glass) .gimbal-copy { max-width: none; }

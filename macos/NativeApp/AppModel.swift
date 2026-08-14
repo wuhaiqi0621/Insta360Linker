@@ -41,7 +41,15 @@ final class AppModel: ObservableObject {
     let backend = BackendClient()
 
     var visibleMedia: [MediaItem] {
-        media.filter { mediaFilter == "all" || $0.kind == mediaFilter }
+        media.filter { mediaFilter == "all" || $0.mediaCategory == mediaFilter }
+    }
+
+    var selectedWatermarkMedia: MediaItem? {
+        guard selectedMedia.count == 1,
+              let item = media.first(where: { selectedMedia.contains($0.url) }),
+              item.supportsWatermark
+        else { return nil }
+        return item
     }
 
     var watermarkSourceKind: WatermarkSourceKind? {
@@ -180,6 +188,24 @@ final class AppModel: ObservableObject {
             "files": items.map { ["url": $0.url, "date": $0.date] },
         ]) { data in
             self.notice = data["message"] as? String ?? "下载完成"
+        }
+    }
+
+    func prepareWatermark(from item: MediaItem) {
+        guard item.supportsWatermark else {
+            errorMessage = "该相机素材格式暂不支持水印导出"
+            return
+        }
+        perform("prepare_watermark_media", payload: ["host": host, "url": item.url]) { data in
+            guard let path = data["path"] as? String, !path.isEmpty else {
+                self.errorMessage = "相机原片没有返回可用路径"
+                return
+            }
+            self.watermarkInput = path
+            self.normalizeWatermarkConfiguration()
+            self.section = .watermark
+            self.notice = data["message"] as? String ?? "相机原片已载入水印工作区"
+            self.refreshWatermarkPreview()
         }
     }
 

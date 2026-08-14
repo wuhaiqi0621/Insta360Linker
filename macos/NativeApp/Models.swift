@@ -44,7 +44,12 @@ struct MediaItem: Identifiable, Hashable {
     let storageLabel: String
 
     var id: String { url }
-    var isVideo: Bool { kind == "video" }
+    var fileExtension: String { URL(fileURLWithPath: name).pathExtension.lowercased() }
+    var isVideo: Bool { ["mp4", "mov", "insv", "lrv", "m4v"].contains(fileExtension) }
+    var mediaCategory: String { isVideo ? "video" : "photo" }
+    var supportsWatermark: Bool {
+        ["jpg", "jpeg", "png", "webp", "mp4", "mov", "m4v"].contains(fileExtension)
+    }
 
     init?(_ json: [String: Any]) {
         guard let name = json["name"] as? String, let url = json["url"] as? String else { return nil }

@@ -9,4 +9,5 @@ final class NativeBridge {
 
     static native void nativeInit(String filesDir);
     static native String nativeHandle(String request);
+    static native byte[] nativePollPreview(int timeoutMs);
 }

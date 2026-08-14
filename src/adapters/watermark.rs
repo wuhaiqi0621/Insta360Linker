@@ -51,6 +51,13 @@ pub struct FrameBackgroundStyle {
     pub end_hex: &'static str,
 }
 
+pub struct VideoWatermarkPlan {
+    pub image: Vec<u8>,
+    pub width_ratio: f32,
+    pub x_ratio: f32,
+    pub bottom_ratio: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 enum MediaKind {
     Image,
@@ -170,6 +177,26 @@ pub fn styles() -> Vec<WatermarkStyle> {
 
 pub fn frame_backgrounds() -> Vec<FrameBackgroundStyle> {
     FRAME_BACKGROUNDS.to_vec()
+}
+
+pub fn video_watermark_plan(
+    width: u32,
+    height: u32,
+    style_id: &str,
+    position: &str,
+) -> anyhow::Result<VideoWatermarkPlan> {
+    let style = style_for(style_id)?;
+    if style.kind == "frame" {
+        bail!("外框水印是 Insta360 App 的照片水印，不能用于视频");
+    }
+    let placement = app_placement(style, width, height, MediaKind::Video, position)
+        .ok_or_else(|| anyhow!("该视频比例或位置不在 Insta360 App 的水印参数表中"))?;
+    Ok(VideoWatermarkPlan {
+        image: load_style_image(style, MediaKind::Video)?,
+        width_ratio: placement.width_ratio,
+        x_ratio: placement.x_ratio,
+        bottom_ratio: placement.bottom_ratio,
+    })
 }
 
 pub fn apply(options: &WatermarkOptions) -> anyhow::Result<()> {
@@ -1356,6 +1383,16 @@ mod tests {
         assert_eq!(placement.x_ratio, 0.361);
         assert_eq!(placement.bottom_ratio, 0.044);
         assert!(app_placement(style, 3840, 2160, MediaKind::Image, "top-left").is_none());
+    }
+
+    #[test]
+    fn android_video_plan_uses_the_apk_video_table_and_asset() {
+        let plan = video_watermark_plan(3840, 2160, "luna-ultra-cn", "bottom-center").unwrap();
+        assert_eq!(plan.width_ratio, 0.220);
+        assert_eq!(plan.x_ratio, 0.390);
+        assert_eq!(plan.bottom_ratio, 0.059);
+        assert!(plan.image.starts_with(&[0x89, b'P', b'N', b'G']));
+        assert!(video_watermark_plan(3840, 2160, "luna-ultra-zstyle-cn", "bottom-center").is_err());
     }
 
     #[test]
