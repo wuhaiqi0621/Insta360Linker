@@ -306,3 +306,9 @@ This file records repository-level operations so another model or developer can 
 - Final Windows executable: `Insta360Linker.exe`, 10,371,072 bytes, SHA-256 `c115054cc360e7d89496c8360af4c55644c09f3a8bbe42adc13d5cd20a00523d`.
 - Final Android ARM64 debug APK: `Insta360Linker-android-arm64-debug.apk`, 14,319,392 bytes, SHA-256 `b735ac126d1b6ffa9fdabd2912b5a3b0968e49446ad06fad538ebdb90d368bde`.
 - The first direct recursive cleanup attempt was blocked by the Windows execution safety policy. Cleanup was then completed with Cargo and Gradle's scoped clean commands: `target_daily`, `target/aarch64-linux-android`, `android/app/build`, `android/build` and generated `android/app/src/main/jniLibs` were permanently removed, and the temporary ADB server was stopped. Final deliverables, source files and pre-existing untracked runtime files were preserved.
+
+## 2026-08-14 - Persistent pre-development synchronization rule
+
+- Fetched GitHub before editing and confirmed local `HEAD` and `origin/main` both pointed to `309096f62001f96d292171c0afa9e365d624df9b`; the tracked working tree was clean and the three pre-existing untracked legacy runtime items were preserved.
+- Re-read the latest `DEVELOPMENT_LOG.md` entries before making this repository-instruction update.
+- Added root `AGENTS.md` instructions requiring every future coding session to fetch and compare GitHub first, use only safe fast-forward pulls, preserve local work, read the development log and incoming changes, continue from the latest user request, keep UTF-8 CRLF, log every operation and keep project artifacts off the C drive.
