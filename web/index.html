@@ -1254,7 +1254,13 @@
     <main class="workspace">
       <header class="topbar">
         <div><h1 id="pageTitle">相机媒体</h1><p id="pageSubtitle">浏览、预览并下载 Luna Ultra 中的照片和视频</p></div>
-        <div class="topbar-actions"><button id="refreshTop" class="button icon" title="刷新相册" aria-label="刷新相册"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button></div>
+        <div class="topbar-actions">
+          <button id="taskCenterToggle" class="button icon task-center-button" title="任务队列" aria-label="打开任务队列" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            <span id="taskCenterBadge" class="task-center-badge" hidden>0</span>
+          </button>
+          <button id="refreshTop" class="button icon" title="刷新相册" aria-label="刷新相册"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button>
+        </div>
       </header>
 
       <div class="page-stack">
@@ -1529,6 +1535,15 @@
       </div>
     </div>
   </div>
+  <button id="taskCenterScrim" class="task-center-scrim" aria-label="关闭任务队列" tabindex="-1"></button>
+  <aside id="taskCenter" class="task-center" aria-labelledby="taskCenterTitle" aria-hidden="true">
+    <header class="task-center-header">
+      <div><h2 id="taskCenterTitle">任务队列</h2><p id="taskCenterSummary">暂无任务</p></div>
+      <button id="taskCenterClose" class="button icon" title="关闭" aria-label="关闭任务队列">×</button>
+    </header>
+    <div id="taskList" class="task-list"><div class="task-empty">保存和下载任务会显示在这里</div></div>
+    <footer class="task-center-footer"><button id="clearFinishedTasks" class="button subtle">清除已完成</button></footer>
+  </aside>
   <div id="toast" class="toast"></div>
 
   <script>
@@ -1601,6 +1616,8 @@
       watermarkBackgrounds: [],
       watermarkPreviewTimer: null,
       watermarkPreviewRequestId: 0,
+      transferTasks: new Map(),
+      taskCenterOpen: false,
       mediaPageSize: 48,
       visibleLimit: 48
     };
@@ -1798,6 +1815,84 @@
       toast.className = "toast show" + (error ? " error" : "");
       clearTimeout(state.toastTimer);
       state.toastTimer = setTimeout(() => { toast.className = "toast"; }, 3600);
+    }
+
+    function formatTaskBytes(value) {
+      const bytes = Number(value);
+      if (!Number.isFinite(bytes) || bytes < 0) return "";
+      if (bytes < 1024) return `${Math.round(bytes)} B`;
+      const units = ["KB", "MB", "GB", "TB"];
+      let size = bytes / 1024;
+      let unit = units[0];
+      for (let index = 1; index < units.length && size >= 1024; index++) {
+        size /= 1024;
+        unit = units[index];
+      }
+      return `${size >= 100 ? size.toFixed(0) : size.toFixed(1)} ${unit}`;
+    }
+
+    function formatTaskEta(value) {
+      const seconds = Math.max(0, Number(value) || 0);
+      if (!seconds) return "";
+      if (seconds < 60) return `约 ${Math.ceil(seconds)} 秒`;
+      if (seconds < 3600) return `约 ${Math.ceil(seconds / 60)} 分钟`;
+      return `约 ${(seconds / 3600).toFixed(1)} 小时`;
+    }
+
+    function taskStateLabel(task) {
+      if (task.state === "queued") return "等待中";
+      if (task.state === "running") return "进行中";
+      if (task.state === "completed") return "已完成";
+      if (task.state === "failed") return "失败";
+      return "处理中";
+    }
+
+    function renderTaskCenter() {
+      const tasks = [...state.transferTasks.values()].sort((left, right) => {
+        const leftActive = ["queued", "running"].includes(left.state) ? 0 : 1;
+        const rightActive = ["queued", "running"].includes(right.state) ? 0 : 1;
+        return leftActive - rightActive || Number(right.created_at || 0) - Number(left.created_at || 0);
+      });
+      const activeCount = tasks.filter(task => ["queued", "running"].includes(task.state)).length;
+      const queuedCount = tasks.filter(task => task.state === "queued").length;
+      $("taskCenterToggle").hidden = tasks.length === 0;
+      $("taskCenterBadge").hidden = activeCount === 0;
+      $("taskCenterBadge").textContent = String(activeCount);
+      $("taskCenterSummary").textContent = activeCount
+        ? `${activeCount} 个进行中${queuedCount ? `，${queuedCount} 个等待` : ""}`
+        : (tasks.length ? "任务已全部完成" : "暂无任务");
+      $("clearFinishedTasks").disabled = !tasks.some(task => ["completed", "failed"].includes(task.state));
+
+      if (!tasks.length) {
+        $("taskList").innerHTML = '<div class="task-empty">保存和下载任务会显示在这里</div>';
+        return;
+      }
+
+      $("taskList").innerHTML = tasks.map(task => {
+        const progress = Math.max(0, Math.min(100, Number(task.progress) || 0));
+        const total = Number(task.total_bytes) || 0;
+        const completed = Number(task.completed_bytes) || 0;
+        const speed = Number(task.speed_bps) || 0;
+        const leftMeta = total > 0
+          ? `${formatTaskBytes(completed)} / ${formatTaskBytes(total)}`
+          : (task.detail || "");
+        const rightMeta = task.state === "running"
+          ? [speed ? `${formatTaskBytes(speed)}/s` : "", formatTaskEta(task.eta_seconds)].filter(Boolean).join(" · ")
+          : (task.detail || "");
+        return `<article class="task-item ${escapeHtml(task.state || "")}">
+          <div class="task-item-head"><strong>${escapeHtml(task.title || "后台任务")}</strong><span class="task-state">${taskStateLabel(task)}</span></div>
+          <div class="task-phase">${escapeHtml(task.phase || task.detail || "正在处理")}</div>
+          <div class="task-progress-track"><div class="task-progress-bar" style="width:${progress}%"></div></div>
+          <div class="task-meta"><span>${escapeHtml(leftMeta)}</span><span>${escapeHtml(rightMeta || `${progress}%`)}</span></div>
+        </article>`;
+      }).join("");
+    }
+
+    function setTaskCenterOpen(open) {
+      state.taskCenterOpen = Boolean(open);
+      $("taskCenter").classList.toggle("open", state.taskCenterOpen);
+      $("taskCenter").setAttribute("aria-hidden", state.taskCenterOpen ? "false" : "true");
+      $("taskCenterScrim").classList.toggle("open", state.taskCenterOpen);
     }
 
     function setPreviewStatus(text, active = false) {
@@ -2912,6 +3007,18 @@
         consumePreviewImage(packet);
       },
 
+      taskProgress(task) {
+        if (!task || task.id === undefined || task.id === null) return;
+        state.transferTasks.set(String(task.id), task);
+        renderTaskCenter();
+      },
+
+      previewRecovering(message) {
+        if (!state.previewing || state.previewFrameReady) return;
+        setPreviewStatus("正在同步画面", true);
+        $("liveHint").textContent = message || "正在等待相机关键帧";
+      },
+
       previewError(message) {
         setPreviewStatus("预览解码不可用");
         $("liveHint").textContent = message || "实时预览解码不可用";
@@ -2940,6 +3047,17 @@
 
     document.querySelectorAll(".nav-button").forEach(button => {
       button.addEventListener("click", () => activatePage(button.dataset.page));
+    });
+
+    $("taskCenterToggle").addEventListener("click", () => setTaskCenterOpen(true));
+    $("taskCenterClose").addEventListener("click", () => setTaskCenterOpen(false));
+    $("taskCenterScrim").addEventListener("click", () => setTaskCenterOpen(false));
+    $("clearFinishedTasks").addEventListener("click", () => {
+      for (const [id, task] of state.transferTasks) {
+        if (["completed", "failed"].includes(task.state)) state.transferTasks.delete(id);
+      }
+      renderTaskCenter();
+      if (!state.transferTasks.size) setTaskCenterOpen(false);
     });
 
     $("connectCamera").addEventListener("click", loadMedia);
@@ -3266,6 +3384,7 @@
       if (savedMomentImage) $("wmMomentImage").value = savedMomentImage;
     } catch (_) {}
 
+    renderTaskCenter();
     renderMedia();
     syncVideoProfileControls();
     send("watermark_styles");

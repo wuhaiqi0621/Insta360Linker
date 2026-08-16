@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::{Mutex, OnceLock, mpsc};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use watermark::WatermarkOptions;
 
@@ -22,16 +22,21 @@ struct AndroidState {
     camera_control: Mutex<Option<luna_local::CameraControlSession>>,
     preview_tx: SyncSender<luna_local::LivePreviewChunk>,
     preview_rx: Mutex<Receiver<luna_local::LivePreviewChunk>>,
+    task_event_tx: SyncSender<String>,
+    task_event_rx: Mutex<Receiver<String>>,
 }
 
 impl AndroidState {
     fn new() -> Self {
         let (preview_tx, preview_rx) = mpsc::sync_channel(24);
+        let (task_event_tx, task_event_rx) = mpsc::sync_channel(128);
         Self {
             media_session: Mutex::new(None),
             camera_control: Mutex::new(None),
             preview_tx,
             preview_rx: Mutex::new(preview_rx),
+            task_event_tx,
+            task_event_rx: Mutex::new(task_event_rx),
         }
     }
 }
@@ -209,6 +214,25 @@ pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativePollPrevie
         .unwrap_or(std::ptr::null_mut())
 }
 
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_studio_insta360_linker_NativeBridge_nativePollTaskEvent(
+    env: JNIEnv,
+    _class: JClass,
+    timeout_ms: jint,
+) -> jstring {
+    let state = STATE.get_or_init(AndroidState::new);
+    let timeout = Duration::from_millis(timeout_ms.clamp(10, 1000) as u64);
+    let event = state
+        .task_event_rx
+        .lock()
+        .expect("task event lock")
+        .recv_timeout(timeout)
+        .unwrap_or_default();
+    env.new_string(event)
+        .map(|value| value.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
 fn handle_json(request: &str) -> String {
     let parsed = serde_json::from_str::<UiRequest>(request);
     let Ok(req) = parsed else {
@@ -245,6 +269,7 @@ fn handle_json(request: &str) -> String {
 
 fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
     let state = STATE.get_or_init(AndroidState::new);
+    let task_id = req.id;
     match req.command.as_str() {
         "detect" => {
             let payload: HostPayload = serde_json::from_value(req.payload)?;
@@ -427,10 +452,49 @@ fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
                 .unwrap_or_else(|| PathBuf::from("downloads"));
             let mut completed = Vec::new();
             let mut failed = Vec::new();
-            for item in payload.files {
+            let item_count = payload.files.len();
+            for (item_index, item) in payload.files.into_iter().enumerate() {
                 let name = download_filename(&item.url);
                 let output = root.join(safe_component(&item.date, "未分类")).join(&name);
-                match luna_local::resume_download_authenticated(&item.url, &output) {
+                let started_at = Instant::now();
+                let mut initial_bytes = None;
+                let download = luna_local::resume_download_authenticated_with_progress(
+                    &item.url,
+                    &output,
+                    |downloaded, total| {
+                        let initial = *initial_bytes.get_or_insert(downloaded);
+                        let transferred = downloaded.saturating_sub(initial);
+                        let elapsed = started_at.elapsed().as_secs_f64().max(0.001);
+                        let speed_bps = (transferred as f64 / elapsed) as u64;
+                        let item_fraction = total
+                            .filter(|value| *value > 0)
+                            .map(|value| (downloaded as f64 / value as f64).clamp(0.0, 1.0));
+                        let overall_progress = item_fraction.map(|fraction| {
+                            (((item_index as f64 + fraction) / item_count.max(1) as f64) * 82.0)
+                                .round() as u8
+                        });
+                        let eta_seconds = total.and_then(|value| {
+                            (speed_bps > 0).then(|| value.saturating_sub(downloaded) / speed_bps)
+                        });
+                        emit_task_event(
+                            state,
+                            json!({
+                                "id": task_id,
+                                "command": "download_batch",
+                                "phase": "正在从相机下载",
+                                "progress": overall_progress,
+                                "completed_bytes": downloaded,
+                                "total_bytes": total,
+                                "speed_bps": speed_bps,
+                                "eta_seconds": eta_seconds,
+                                "item_index": item_index + 1,
+                                "item_count": item_count,
+                                "item_name": name,
+                            }),
+                        );
+                    },
+                );
+                match download {
                     Ok(()) => completed
                         .push(json!({"name": name, "output": output.display().to_string()})),
                     Err(error) => failed.push(json!({"name": name, "error": error.to_string()})),
@@ -448,7 +512,41 @@ fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
             luna_local::camera_path_from_url(&payload.host, &payload.url)?;
             let output = cached_watermark_source_path(&payload.url)?;
             if !output.is_file() || output.metadata().map(|meta| meta.len()).unwrap_or(0) == 0 {
-                luna_local::resume_download_authenticated(&payload.url, &output)?;
+                let started_at = Instant::now();
+                let mut initial_bytes = None;
+                luna_local::resume_download_authenticated_with_progress(
+                    &payload.url,
+                    &output,
+                    |downloaded, total| {
+                        let initial = *initial_bytes.get_or_insert(downloaded);
+                        let transferred = downloaded.saturating_sub(initial);
+                        let elapsed = started_at.elapsed().as_secs_f64().max(0.001);
+                        let speed_bps = (transferred as f64 / elapsed) as u64;
+                        let progress = total.filter(|value| *value > 0).map(|value| {
+                            ((downloaded as f64 / value as f64).clamp(0.0, 1.0) * 92.0).round()
+                                as u8
+                        });
+                        let eta_seconds = total.and_then(|value| {
+                            (speed_bps > 0).then(|| value.saturating_sub(downloaded) / speed_bps)
+                        });
+                        emit_task_event(
+                            state,
+                            json!({
+                                "id": task_id,
+                                "command": "prepare_watermark_media",
+                                "phase": "正在载入相机原片",
+                                "progress": progress,
+                                "completed_bytes": downloaded,
+                                "total_bytes": total,
+                                "speed_bps": speed_bps,
+                                "eta_seconds": eta_seconds,
+                                "item_index": 1,
+                                "item_count": 1,
+                                "item_name": download_filename(&payload.url),
+                            }),
+                        );
+                    },
+                )?;
             }
             Ok(json!({
                 "message": "相机原片已载入水印工作区",
@@ -516,6 +614,10 @@ fn handle_command(req: UiRequest) -> anyhow::Result<Value> {
         "scan_ble" => Ok(json!([])),
         other => Err(anyhow!("Android 版暂不支持命令：{other}")),
     }
+}
+
+fn emit_task_event(state: &AndroidState, event: Value) {
+    let _ = state.task_event_tx.try_send(event.to_string());
 }
 
 fn camera_control_for<'a>(

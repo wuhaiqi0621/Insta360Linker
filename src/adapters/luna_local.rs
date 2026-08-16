@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 
 use regex::Regex;
 
+use reqwest::StatusCode;
 use reqwest::blocking::Client;
 
 use reqwest::header::{ACCEPT_ENCODING, RANGE, USER_AGENT};
@@ -4001,6 +4002,17 @@ pub fn resume_download_with_session(
 }
 
 pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::Result<()> {
+    resume_download_authenticated_with_progress(file_url, output, |_, _| {})
+}
+
+pub fn resume_download_authenticated_with_progress<F>(
+    file_url: &str,
+    output: &Path,
+    mut progress: F,
+) -> anyhow::Result<()>
+where
+    F: FnMut(u64, Option<u64>),
+{
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -4019,7 +4031,7 @@ pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::R
     let client_builder = Client::builder()
         .no_proxy()
         .connect_timeout(CAMERA_CONNECT_TIMEOUT)
-        .timeout(Duration::from_secs(30));
+        .timeout(Duration::from_secs(2 * 60 * 60));
     let client_builder =
         bind_camera_http_client(client_builder, camera_host).map_err(anyhow::Error::msg)?;
 
@@ -4034,13 +4046,48 @@ pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::R
     }
 
     let mut response = req.send()?.error_for_status()?;
+    let resumed = existing > 0 && response.status() == StatusCode::PARTIAL_CONTENT;
+    let initial = if resumed { existing } else { 0 };
+    let total = response.content_length().map(|length| initial + length);
 
     let mut file = fs::OpenOptions::new()
         .create(true)
-        .append(true)
+        .write(true)
+        .append(resumed)
+        .truncate(!resumed)
         .open(&partial)?;
 
-    std::io::copy(&mut response, &mut file)?;
+    let mut downloaded = initial;
+    let mut buffer = vec![0_u8; 256 * 1024];
+    let mut last_report = Instant::now()
+        .checked_sub(Duration::from_secs(1))
+        .unwrap_or_else(Instant::now);
+    progress(downloaded, total);
+    loop {
+        let count = response.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        file.write_all(&buffer[..count])?;
+        downloaded += count as u64;
+        let now = Instant::now();
+        if now.duration_since(last_report) >= Duration::from_millis(120)
+            || total.is_some_and(|expected| downloaded >= expected)
+        {
+            progress(downloaded, total);
+            last_report = now;
+        }
+    }
+    file.flush()?;
+    progress(downloaded, total);
+
+    if let Some(expected) = total
+        && downloaded != expected
+    {
+        return Err(anyhow!(
+            "相机媒体下载不完整：已接收 {downloaded} 字节，应为 {expected} 字节"
+        ));
+    }
 
     fs::rename(partial, output)?;
 
