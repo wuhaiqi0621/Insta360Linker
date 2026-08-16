@@ -1842,18 +1842,20 @@
     function taskStateLabel(task) {
       if (task.state === "queued") return "等待中";
       if (task.state === "running") return "进行中";
+      if (task.state === "paused") return "已暂停";
       if (task.state === "completed") return "已完成";
       if (task.state === "failed") return "失败";
+      if (task.state === "cancelled") return "已停止";
       return "处理中";
     }
 
     function renderTaskCenter() {
       const tasks = [...state.transferTasks.values()].sort((left, right) => {
-        const leftActive = ["queued", "running"].includes(left.state) ? 0 : 1;
-        const rightActive = ["queued", "running"].includes(right.state) ? 0 : 1;
+        const leftActive = ["queued", "running", "paused"].includes(left.state) ? 0 : 1;
+        const rightActive = ["queued", "running", "paused"].includes(right.state) ? 0 : 1;
         return leftActive - rightActive || Number(right.created_at || 0) - Number(left.created_at || 0);
       });
-      const activeCount = tasks.filter(task => ["queued", "running"].includes(task.state)).length;
+      const activeCount = tasks.filter(task => ["queued", "running", "paused"].includes(task.state)).length;
       const queuedCount = tasks.filter(task => task.state === "queued").length;
       $("taskCenterToggle").hidden = tasks.length === 0;
       $("taskCenterBadge").hidden = activeCount === 0;
@@ -1861,7 +1863,7 @@
       $("taskCenterSummary").textContent = activeCount
         ? `${activeCount} 个进行中${queuedCount ? `，${queuedCount} 个等待` : ""}`
         : (tasks.length ? "任务已全部完成" : "暂无任务");
-      $("clearFinishedTasks").disabled = !tasks.some(task => ["completed", "failed"].includes(task.state));
+      $("clearFinishedTasks").disabled = !tasks.some(task => ["completed", "failed", "cancelled"].includes(task.state));
 
       if (!tasks.length) {
         $("taskList").innerHTML = '<div class="task-empty">保存和下载任务会显示在这里</div>';
@@ -1879,11 +1881,18 @@
         const rightMeta = task.state === "running"
           ? [speed ? `${formatTaskBytes(speed)}/s` : "", formatTaskEta(task.eta_seconds)].filter(Boolean).join(" · ")
           : (task.detail || "");
+        const taskControls = task.controllable && ["queued", "running", "paused"].includes(task.state)
+          ? `<div class="task-actions">
+              <button class="button small" data-task-action="${task.state === "paused" ? "resume" : "pause"}" data-task-id="${Number(task.id)}">${task.state === "paused" ? "继续" : "暂停"}</button>
+              <button class="button small danger" data-task-action="cancel" data-task-id="${Number(task.id)}">停止并删除缓存</button>
+            </div>`
+          : "";
         return `<article class="task-item ${escapeHtml(task.state || "")}">
           <div class="task-item-head"><strong>${escapeHtml(task.title || "后台任务")}</strong><span class="task-state">${taskStateLabel(task)}</span></div>
           <div class="task-phase">${escapeHtml(task.phase || task.detail || "正在处理")}</div>
           <div class="task-progress-track"><div class="task-progress-bar" style="width:${progress}%"></div></div>
           <div class="task-meta"><span>${escapeHtml(leftMeta)}</span><span>${escapeHtml(rightMeta || `${progress}%`)}</span></div>
+          ${taskControls}
         </article>`;
       }).join("");
     }
@@ -2562,7 +2571,11 @@
     }
 
     function downloadSelected() {
-      const files = selectedFiles().map(file => ({ url: file.url, date: file.date || "" }));
+      const files = selectedFiles().map(file => ({
+        url: file.url,
+        date: file.date || "",
+        bytes: Number(file.bytes) > 0 ? Number(file.bytes) : null
+      }));
       if (!files.length) return;
       state.pendingDownloadFiles = files;
       send("pick_download_dir");
@@ -3054,10 +3067,18 @@
     $("taskCenterScrim").addEventListener("click", () => setTaskCenterOpen(false));
     $("clearFinishedTasks").addEventListener("click", () => {
       for (const [id, task] of state.transferTasks) {
-        if (["completed", "failed"].includes(task.state)) state.transferTasks.delete(id);
+        if (["completed", "failed", "cancelled"].includes(task.state)) state.transferTasks.delete(id);
       }
       renderTaskCenter();
       if (!state.transferTasks.size) setTaskCenterOpen(false);
+    });
+    $("taskList").addEventListener("click", event => {
+      const button = event.target.closest("[data-task-action]");
+      if (!button) return;
+      const taskId = Number(button.dataset.taskId);
+      const action = button.dataset.taskAction;
+      if (!Number.isFinite(taskId) || !["pause", "resume", "cancel"].includes(action)) return;
+      send(`transfer_${action}`, { task_id: taskId });
     });
 
     $("connectCamera").addEventListener("click", loadMedia);

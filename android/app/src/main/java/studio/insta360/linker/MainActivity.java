@@ -21,6 +21,8 @@ import android.graphics.YuvImage;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
@@ -96,11 +98,12 @@ public final class MainActivity extends Activity {
     private static final int PICK_MEDIA_REQUEST = 2001;
     private static final int PICK_MOMENT_REQUEST = 2002;
     private static final int MAX_THUMBNAIL_SOURCE = 96 * 1024 * 1024;
-    private static final long PREVIEW_FRAME_INTERVAL_MS = 120;
+    private static final long PREVIEW_FRAME_INTERVAL_MS = 160;
 
     private final ExecutorService nativeExecutor = Executors.newFixedThreadPool(3);
     private final ExecutorService transferExecutor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean previewPumpRunning = new AtomicBoolean(false);
+    private final AtomicBoolean previewFrameDeliveryInFlight = new AtomicBoolean(false);
     private final AtomicBoolean taskEventPumpRunning = new AtomicBoolean(false);
     private final Object transferTaskLock = new Object();
     private final LinkedHashMap<Long, TransferTask> transferTasks = new LinkedHashMap<>();
@@ -318,8 +321,21 @@ public final class MainActivity extends Activity {
                     case "watermark":
                         enqueueTransferTask(request);
                         return;
+                    case "transfer_pause":
+                    case "transfer_resume":
+                    case "transfer_cancel":
+                        controlTransferTask(request, command);
+                        return;
                     case "scan_ble":
                         startBleScan(request);
+                        return;
+                    case "disconnect_luna":
+                        cancelActiveCameraTransfers();
+                        nativeExecutor.submit(() -> {
+                            String response = NativeBridge.nativeHandle(request.toString());
+                            updatePreviewPump(command, response);
+                            deliverResponse(response);
+                        });
                         return;
                     default:
                         nativeExecutor.submit(() -> {
@@ -337,13 +353,94 @@ public final class MainActivity extends Activity {
     private void enqueueTransferTask(JSONObject request) {
         long id = request.optLong("id");
         String command = request.optString("command");
+        if ("prepare_watermark_media".equals(command)) {
+            JSONObject payload = request.optJSONObject("payload");
+            if (payload != null) {
+                File cache = new File(getCacheDir(), "exports/watermark_sources");
+                cache.mkdirs();
+                putQuietly(payload, "output_dir", cache.getAbsolutePath());
+            }
+        }
         TransferTask task = new TransferTask(id, command, transferTaskTitle(command, request));
+        if (task.isControllable()) {
+            NativeBridge.nativeControlTransfer(id, 0);
+        }
         synchronized (transferTaskLock) {
             trimTransferTaskHistory();
             transferTasks.put(id, task);
         }
         emitTransferTask(id);
         transferExecutor.submit(() -> executeTransferTask(request, task));
+    }
+
+    private void controlTransferTask(JSONObject request, String command) {
+        JSONObject payload = request.optJSONObject("payload");
+        long taskId = payload == null ? 0 : payload.optLong("task_id");
+        TransferTask task;
+        synchronized (transferTaskLock) {
+            task = transferTasks.get(taskId);
+        }
+        if (task == null || !task.isControllable() || task.isTerminal()) {
+            deliverResponse(errorResponse(
+                request.optLong("id"),
+                command,
+                "该传输任务已经结束或不存在"
+            ).toString());
+            return;
+        }
+
+        JSONObject result = new JSONObject();
+        if ("transfer_pause".equals(command)) {
+            task.pause();
+            NativeBridge.nativeControlTransfer(taskId, 1);
+            updateTransferTask(taskId, "paused", "传输已暂停", null, null, null, 0, null, task.detail);
+            putQuietly(result, "message", "传输已暂停");
+        } else if ("transfer_resume".equals(command)) {
+            task.resume();
+            NativeBridge.nativeControlTransfer(taskId, 2);
+            updateTransferTask(taskId, "running", "正在恢复传输", null, null, null, 0, null, task.detail);
+            putQuietly(result, "message", "传输已继续");
+        } else {
+            task.cancel();
+            NativeBridge.nativeControlTransfer(taskId, 3);
+            updateTransferTask(taskId, "cancelled", "传输已停止", null, null, null, 0, null, "未完成文件已删除");
+            putQuietly(result, "message", "传输已停止，未完成文件已删除");
+        }
+        sendSuccess(request, result);
+    }
+
+    private void cancelActiveCameraTransfers() {
+        List<Long> cancelled = new ArrayList<>();
+        synchronized (transferTaskLock) {
+            for (TransferTask task : transferTasks.values()) {
+                if (!task.isControllable() || task.isTerminal()) {
+                    continue;
+                }
+                task.cancel();
+                NativeBridge.nativeControlTransfer(task.id, 3);
+                cancelled.add(task.id);
+            }
+        }
+        for (long taskId : cancelled) {
+            updateTransferTask(
+                taskId,
+                "cancelled",
+                "相机已断开，传输已停止",
+                null,
+                null,
+                null,
+                0,
+                null,
+                "未完成文件已删除"
+            );
+        }
+    }
+
+    private void putQuietly(JSONObject target, String key, Object value) {
+        try {
+            target.put(key, value);
+        } catch (Exception ignored) {
+        }
     }
 
     private String transferTaskTitle(String command, JSONObject request) {
@@ -362,9 +459,10 @@ public final class MainActivity extends Activity {
     }
 
     private void executeTransferTask(JSONObject request, TransferTask task) {
-        updateTransferTask(task.id, "running", "正在准备", 1, null, null, 0, null, null);
-        String response;
+        String response = null;
         try {
+            task.awaitPermission();
+            updateTransferTask(task.id, "running", "正在准备", 0, null, null, 0, null, null);
             JSONObject payload = request.optJSONObject("payload");
             if ("watermark".equals(task.command)
                 && payload != null
@@ -372,11 +470,12 @@ public final class MainActivity extends Activity {
                 response = exportAndroidVideoWatermark(request, task);
             } else {
                 if ("watermark".equals(task.command)) {
-                    updateTransferTask(task.id, "running", "正在渲染照片水印", 12, null, null, 0, null, null);
+                    updateTransferTask(task.id, "running", "正在渲染照片水印", 0, null, null, 0, null, null);
                 }
                 response = NativeBridge.nativeHandle(request.toString());
             }
 
+            task.awaitPermission();
             JSONObject parsed = new JSONObject(response);
             if (parsed.optBoolean("ok")
                 && ("watermark".equals(task.command) || "download_batch".equals(task.command))) {
@@ -387,21 +486,70 @@ public final class MainActivity extends Activity {
             if (parsed.optBoolean("ok")) {
                 JSONObject data = parsed.optJSONObject("data");
                 String message = data == null ? "任务已完成" : data.optString("message", "任务已完成");
-                updateTransferTask(task.id, "completed", message, 100, null, null, 0, 0L, message);
+                JSONArray failed = data == null ? null : data.optJSONArray("failed");
+                if (failed != null && failed.length() > 0) {
+                    updateTransferTask(task.id, "failed", "部分文件传输失败", null, null, null, 0, null, message);
+                } else {
+                    updateTransferTask(task.id, "completed", message, 100, null, null, 0, 0L, message);
+                }
             } else {
                 String error = parsed.optString("error", "任务失败");
-                updateTransferTask(task.id, "failed", "任务失败", null, null, null, 0, null, error);
+                updateTransferFailure(task, error);
             }
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             response = errorResponse(task.id, task.command, "任务已中断").toString();
-            updateTransferTask(task.id, "failed", "任务已中断", null, null, null, 0, null, "任务已中断");
+            updateTransferFailure(task, "任务已中断");
         } catch (Exception error) {
             String message = error.getMessage() == null ? "任务失败" : error.getMessage();
             response = errorResponse(task.id, task.command, message).toString();
+            updateTransferFailure(task, message);
+        } finally {
+            if (task.cancelled) {
+                cleanupCancelledTransfer(response);
+            }
+            if (task.isControllable()) {
+                NativeBridge.nativeControlTransfer(task.id, 4);
+            }
+        }
+        deliverResponse(response == null
+            ? errorResponse(task.id, task.command, "任务未完成").toString()
+            : response);
+    }
+
+    private void updateTransferFailure(TransferTask task, String message) {
+        if (task.cancelled) {
+            updateTransferTask(task.id, "cancelled", "传输已停止", null, null, null, 0, null, "未完成文件已删除");
+        } else {
             updateTransferTask(task.id, "failed", "任务失败", null, null, null, 0, null, message);
         }
-        deliverResponse(response);
+    }
+
+    private void cleanupCancelledTransfer(String responseText) {
+        if (responseText == null || responseText.isEmpty()) {
+            return;
+        }
+        try {
+            JSONObject response = new JSONObject(responseText);
+            JSONObject data = response.optJSONObject("data");
+            if (data == null) {
+                return;
+            }
+            String path = data.optString("path");
+            if (!path.isEmpty()) {
+                deleteTemporaryExport(new File(path));
+            }
+            JSONArray completed = data.optJSONArray("completed");
+            if (completed != null) {
+                for (int index = 0; index < completed.length(); index++) {
+                    JSONObject item = completed.optJSONObject(index);
+                    if (item != null) {
+                        deleteTemporaryExport(new File(item.optString("output")));
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void startTaskEventPump() {
@@ -482,6 +630,15 @@ public final class MainActivity extends Activity {
             if (task == null) {
                 return;
             }
+            if (task.cancelled && !"cancelled".equals(state)) {
+                return;
+            }
+            if (task.paused && "running".equals(state)) {
+                state = "paused";
+                phase = "传输已暂停";
+                speedBps = 0;
+                etaSeconds = null;
+            }
             task.state = state;
             task.phase = phase;
             if (progress != null) {
@@ -560,6 +717,9 @@ public final class MainActivity extends Activity {
         Long etaSeconds;
         final long createdAt = System.currentTimeMillis();
         long updatedAt = createdAt;
+        final Object controlMonitor = new Object();
+        volatile boolean paused = false;
+        volatile boolean cancelled = false;
 
         TransferTask(long id, String command, String title) {
             this.id = id;
@@ -568,7 +728,43 @@ public final class MainActivity extends Activity {
         }
 
         boolean isTerminal() {
-            return "completed".equals(state) || "failed".equals(state);
+            return "completed".equals(state) || "failed".equals(state) || "cancelled".equals(state);
+        }
+
+        boolean isControllable() {
+            return "download_batch".equals(command) || "prepare_watermark_media".equals(command);
+        }
+
+        void pause() {
+            synchronized (controlMonitor) {
+                paused = true;
+            }
+        }
+
+        void resume() {
+            synchronized (controlMonitor) {
+                paused = false;
+                controlMonitor.notifyAll();
+            }
+        }
+
+        void cancel() {
+            synchronized (controlMonitor) {
+                cancelled = true;
+                paused = false;
+                controlMonitor.notifyAll();
+            }
+        }
+
+        void awaitPermission() throws InterruptedException, IOException {
+            synchronized (controlMonitor) {
+                while (paused && !cancelled) {
+                    controlMonitor.wait(200);
+                }
+                if (cancelled) {
+                    throw new IOException("任务已停止，未完成文件已删除");
+                }
+            }
         }
 
         JSONObject toJson() {
@@ -587,6 +783,7 @@ public final class MainActivity extends Activity {
                 value.put("eta_seconds", etaSeconds == null ? JSONObject.NULL : etaSeconds);
                 value.put("created_at", createdAt);
                 value.put("updated_at", updatedAt);
+                value.put("controllable", isControllable());
             } catch (Exception ignored) {
             }
             return value;
@@ -822,12 +1019,22 @@ public final class MainActivity extends Activity {
         if (!previewPumpRunning.compareAndSet(false, true)) {
             return;
         }
-        previewPumpThread = new Thread(this::runPreviewPump, "Insta360Linker-preview");
+        previewFrameDeliveryInFlight.set(false);
+        previewPumpThread = new Thread(() -> {
+            try {
+                runPreviewPump();
+            } catch (Throwable error) {
+                previewPumpRunning.set(false);
+                previewFrameDeliveryInFlight.set(false);
+                deliverPreviewError("Android 预览线程已安全停止：" + throwableMessage(error));
+            }
+        }, "Insta360Linker-preview");
         previewPumpThread.start();
     }
 
     private void stopPreviewPump() {
         previewPumpRunning.set(false);
+        previewFrameDeliveryInFlight.set(false);
         Thread thread = previewPumpThread;
         previewPumpThread = null;
         if (thread != null) {
@@ -857,7 +1064,7 @@ public final class MainActivity extends Activity {
                     }
                     lastFrameAt[0] = now;
                     deliverPreviewImage(imageToJpeg(image));
-                } catch (Exception error) {
+                } catch (Throwable error) {
                     deliverPreviewError("实时画面转换失败：" + error.getMessage());
                 }
             }, new Handler(imageThread.getLooper()));
@@ -901,8 +1108,8 @@ public final class MainActivity extends Activity {
                         activeCodecConfig = accessUnit.codecConfig;
                         decoderStartedAt = SystemClock.elapsedRealtime();
                         decodedFrameAt.set(0L);
-                        deliverPreviewRecovering("关键帧已同步，正在解码");
-                    } catch (Exception error) {
+                        deliverPreviewRecovering("关键帧已同步，正在使用 " + decoder.getName() + " 解码");
+                    } catch (Throwable error) {
                         decoder = releasePreviewDecoder(decoder);
                         activeCodecConfig = null;
                         decoderStartedAt = 0L;
@@ -928,7 +1135,7 @@ public final class MainActivity extends Activity {
                     queuePreviewSample(decoder, outputInfo, accessUnit, presentationTimeUs);
                     lastPresentationTimeUs = presentationTimeUs;
                     decoderFailures = 0;
-                } catch (Exception error) {
+                } catch (Throwable error) {
                     decoder = releasePreviewDecoder(decoder);
                     activeCodecConfig = null;
                     decoderStartedAt = 0L;
@@ -940,36 +1147,89 @@ public final class MainActivity extends Activity {
                     }
                 }
             }
-        } catch (Exception error) {
+        } catch (Throwable error) {
             if (previewPumpRunning.get()) {
-                deliverPreviewError("Android 实时预览解码失败：" + error.getMessage());
+                deliverPreviewError("Android 实时预览解码失败：" + throwableMessage(error));
             }
         } finally {
             previewPumpRunning.set(false);
+            previewFrameDeliveryInFlight.set(false);
             releasePreviewDecoder(decoder);
             if (imageReader != null) {
-                imageReader.close();
+                try {
+                    imageReader.close();
+                } catch (Throwable ignored) {
+                }
             }
-            imageThread.quitSafely();
+            try {
+                imageThread.quitSafely();
+            } catch (Throwable ignored) {
+            }
         }
     }
 
     private MediaCodec createPreviewDecoder(ImageReader imageReader, byte[] codecConfig) throws IOException {
-        MediaCodec decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_HEVC);
-        try {
-            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, 1280, 720);
-            format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 2 * 1024 * 1024);
-            format.setByteBuffer("csd-0", ByteBuffer.wrap(codecConfig));
-            decoder.configure(format, imageReader.getSurface(), null, 0);
-            decoder.start();
-            return decoder;
-        } catch (Exception error) {
-            decoder.release();
-            if (error instanceof IOException) {
-                throw (IOException) error;
+        List<String> candidates = previewDecoderCandidates();
+        Throwable lastError = null;
+        for (String candidate : candidates) {
+            MediaCodec decoder = null;
+            try {
+                decoder = candidate == null
+                    ? MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_HEVC)
+                    : MediaCodec.createByCodecName(candidate);
+                MediaFormat format = MediaFormat.createVideoFormat(
+                    MediaFormat.MIMETYPE_VIDEO_HEVC,
+                    1280,
+                    720
+                );
+                format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 2 * 1024 * 1024);
+                format.setByteBuffer("csd-0", ByteBuffer.wrap(codecConfig));
+                decoder.configure(format, imageReader.getSurface(), null, 0);
+                decoder.start();
+                return decoder;
+            } catch (Throwable error) {
+                lastError = error;
+                releasePreviewDecoder(decoder);
             }
-            throw new IOException(error.getMessage(), error);
         }
+        throw new IOException("系统没有可用的稳定 HEVC 解码器", lastError);
+    }
+
+    private List<String> previewDecoderCandidates() {
+        List<String> software = new ArrayList<>();
+        List<String> hardware = new ArrayList<>();
+        try {
+            for (MediaCodecInfo info : new MediaCodecList(MediaCodecList.REGULAR_CODECS).getCodecInfos()) {
+                if (info.isEncoder() || !supportsType(info, MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+                    continue;
+                }
+                String name = info.getName();
+                String normalized = name.toLowerCase(Locale.US);
+                if (normalized.startsWith("c2.android.") || normalized.startsWith("omx.google.")) {
+                    software.add(name);
+                } else {
+                    hardware.add(name);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        software.addAll(hardware);
+        if (software.isEmpty()) {
+            software.add(null);
+        }
+        return software;
+    }
+
+    private boolean supportsType(MediaCodecInfo info, String mimeType) {
+        try {
+            for (String type : info.getSupportedTypes()) {
+                if (mimeType.equalsIgnoreCase(type)) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private void queuePreviewSample(
@@ -1012,9 +1272,12 @@ public final class MainActivity extends Activity {
         }
         try {
             decoder.stop();
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
         }
-        decoder.release();
+        try {
+            decoder.release();
+        } catch (Throwable ignored) {
+        }
         return null;
     }
 
@@ -1098,35 +1361,72 @@ public final class MainActivity extends Activity {
     }
 
     private void deliverPreviewImage(byte[] jpeg) {
-        String data = Base64.encodeToString(jpeg, Base64.NO_WRAP);
-        runOnUiThread(() -> webView.evaluateJavascript(
-            "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewImage({data:"
-                + JSONObject.quote(data) + "});",
-            null
-        ));
+        if (!previewPumpRunning.get()
+            || !previewFrameDeliveryInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            String data = Base64.encodeToString(jpeg, Base64.NO_WRAP);
+            evaluatePreviewJavascript(
+                "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewImage({data:"
+                    + JSONObject.quote(data) + "});",
+                () -> previewFrameDeliveryInFlight.set(false)
+            );
+        } catch (Throwable error) {
+            previewFrameDeliveryInFlight.set(false);
+            deliverPreviewError("实时画面投递失败：" + throwableMessage(error));
+        }
     }
 
     private void deliverPreviewError(String message) {
-        runOnUiThread(() -> webView.evaluateJavascript(
+        evaluatePreviewJavascript(
             "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewError("
                 + JSONObject.quote(message) + ");",
             null
-        ));
+        );
     }
 
     private void deliverPreviewRecovering(String message) {
-        runOnUiThread(() -> webView.evaluateJavascript(
+        evaluatePreviewJavascript(
             "window.Insta360LinkerBridge&&window.Insta360LinkerBridge.previewRecovering("
                 + JSONObject.quote(message) + ");",
             null
-        ));
+        );
+    }
+
+    private void evaluatePreviewJavascript(String script, Runnable completion) {
+        runOnUiThread(() -> {
+            try {
+                WebView view = webView;
+                if (view == null || isFinishing() || (Build.VERSION.SDK_INT >= 17 && isDestroyed())) {
+                    if (completion != null) {
+                        completion.run();
+                    }
+                    return;
+                }
+                view.evaluateJavascript(script, ignored -> {
+                    if (completion != null) {
+                        completion.run();
+                    }
+                });
+            } catch (Throwable ignored) {
+                if (completion != null) {
+                    completion.run();
+                }
+            }
+        });
+    }
+
+    private String throwableMessage(Throwable error) {
+        String message = error.getMessage();
+        return message == null || message.isEmpty() ? error.getClass().getSimpleName() : message;
     }
 
     @androidx.media3.common.util.UnstableApi
     private String exportAndroidVideoWatermark(JSONObject request, TransferTask task) throws Exception {
         Bitmap sourceBitmap = null;
         try {
-            updateTransferTask(task.id, "running", "正在准备视频水印", 4, null, null, 0, null, null);
+            updateTransferTask(task.id, "running", "正在准备视频水印", 0, null, null, 0, null, null);
             JSONObject payload = request.getJSONObject("payload");
             String input = payload.getString("input");
             String output = payload.getString("output");
@@ -1190,7 +1490,7 @@ public final class MainActivity extends Activity {
             if (exportError.get() != null) {
                 throw new IOException(exportError.get());
             }
-            updateTransferTask(task.id, "running", "视频水印已生成", 84, null, null, 0, null, null);
+            updateTransferTask(task.id, "running", "视频水印已生成", 100, null, null, 0, null, null);
 
             JSONObject data = new JSONObject();
             data.put("message", "水印文件已导出");
@@ -1306,12 +1606,11 @@ public final class MainActivity extends Activity {
                     try {
                         int state = transformer.getProgress(progressHolder);
                         if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
-                            int progress = 8 + Math.round(progressHolder.progress * 0.74f);
                             updateTransferTask(
                                 taskId,
                                 "running",
                                 "正在转码并写入视频水印",
-                                Math.min(82, progress),
+                                Math.max(0, Math.min(100, progressHolder.progress)),
                                 null,
                                 null,
                                 0,
@@ -1535,25 +1834,31 @@ public final class MainActivity extends Activity {
             if ("watermark".equals(command)) {
                 File source = new File(data.optString("path"));
                 long phaseStartedAt = SystemClock.elapsedRealtime();
-                Uri galleryUri = publishFileToGallery(source, (completed, total) -> {
-                    int progress = total > 0
-                        ? 84 + (int) Math.round((completed / (double) total) * 16.0)
-                        : 84;
-                    long elapsed = Math.max(1, SystemClock.elapsedRealtime() - phaseStartedAt);
-                    long speed = completed * 1000L / elapsed;
-                    Long eta = speed > 0 && total > completed ? (total - completed) / speed : 0L;
-                    updateTransferTask(
-                        task.id,
-                        "running",
-                        "正在写入系统相册",
-                        progress,
-                        completed,
-                        total,
-                        speed,
-                        eta,
-                        source.getName()
-                    );
-                });
+                Uri galleryUri;
+                try {
+                    galleryUri = publishFileToGallery(source, task, (completed, total) -> {
+                        int progress = total > 0
+                            ? (int) Math.round((completed / (double) total) * 100.0)
+                            : 0;
+                        long elapsed = Math.max(1, SystemClock.elapsedRealtime() - phaseStartedAt);
+                        long speed = completed * 1000L / elapsed;
+                        Long eta = speed > 0 && total > completed ? (total - completed) / speed : 0L;
+                        updateTransferTask(
+                            task.id,
+                            "running",
+                            "正在写入系统相册",
+                            progress,
+                            completed,
+                            total,
+                            speed,
+                            eta,
+                            source.getName()
+                        );
+                    });
+                } catch (Exception error) {
+                    deleteTemporaryExport(source);
+                    throw error;
+                }
                 data.put("path", galleryUri.toString());
                 data.put("message", "水印文件已保存到系统相册");
                 deleteTemporaryExport(source);
@@ -1588,11 +1893,11 @@ public final class MainActivity extends Activity {
                         int itemNumber = index + 1;
                         int itemCount = completed.length();
                         try {
-                            Uri galleryUri = publishFileToGallery(source, (copied, ignoredTotal) -> {
+                            Uri galleryUri = publishFileToGallery(source, task, (copied, ignoredTotal) -> {
                                 long aggregate = completedBeforeFile + copied;
                                 int progress = totalBytes > 0
-                                    ? 82 + (int) Math.round((aggregate / (double) totalBytes) * 18.0)
-                                    : 82;
+                                    ? (int) Math.round((aggregate / (double) totalBytes) * 100.0)
+                                    : 0;
                                 long elapsed = Math.max(1, SystemClock.elapsedRealtime() - phaseStartedAt);
                                 long speed = aggregate * 1000L / elapsed;
                                 Long eta = speed > 0 && totalBytes > aggregate
@@ -1618,6 +1923,7 @@ public final class MainActivity extends Activity {
                             failure.put("name", item.optString("name", source.getName()));
                             failure.put("error", "保存到系统相册失败：" + error.getMessage());
                             failed.put(failure);
+                            deleteTemporaryExport(source);
                         }
                         publishedBytes += sourceLength;
                     }
@@ -1644,7 +1950,11 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private Uri publishFileToGallery(File source, FileProgress progress) throws IOException {
+    private Uri publishFileToGallery(
+        File source,
+        TransferTask task,
+        FileProgress progress
+    ) throws IOException {
         if (!source.isFile()) {
             throw new IOException("导出文件不存在");
         }
@@ -1672,7 +1982,7 @@ public final class MainActivity extends Activity {
                     if (output == null) {
                         throw new IOException("系统相册无法写入文件");
                     }
-                    copyStream(input, output, totalBytes, progress);
+                    copyStream(input, output, totalBytes, progress, task);
                 }
                 ContentValues ready = new ContentValues();
                 ready.put(MediaStore.MediaColumns.IS_PENDING, 0);
@@ -1698,9 +2008,17 @@ public final class MainActivity extends Activity {
             throw new IOException("无法创建系统相册目录");
         }
         File destination = uniqueDestination(album, source.getName());
-        try (InputStream input = new FileInputStream(source);
-             OutputStream output = new FileOutputStream(destination)) {
-            copyStream(input, output, totalBytes, progress);
+        try {
+            try (InputStream input = new FileInputStream(source);
+                 OutputStream output = new FileOutputStream(destination)) {
+                copyStream(input, output, totalBytes, progress, task);
+            }
+        } catch (Exception error) {
+            destination.delete();
+            if (error instanceof IOException) {
+                throw (IOException) error;
+            }
+            throw new IOException(error.getMessage(), error);
         }
         MediaScannerConnection.scanFile(
             this,
@@ -1715,13 +2033,20 @@ public final class MainActivity extends Activity {
         InputStream input,
         OutputStream output,
         long totalBytes,
-        FileProgress progress
+        FileProgress progress,
+        TransferTask task
     ) throws IOException {
         byte[] buffer = new byte[256 * 1024];
         int count;
         long completed = 0;
         long lastUpdate = 0;
         while ((count = input.read(buffer)) >= 0) {
+            try {
+                task.awaitPermission();
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throw new IOException("传输已中断", error);
+            }
             output.write(buffer, 0, count);
             completed += count;
             long now = SystemClock.elapsedRealtime();

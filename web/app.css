@@ -535,19 +535,27 @@ html:not(.native-liquid-glass) .task-item {
 html:not(.native-liquid-glass) .task-item + .task-item { margin-top: 8px; }
 html:not(.native-liquid-glass) .task-item.failed { border-color: rgba(189, 53, 64, .28); }
 html:not(.native-liquid-glass) .task-item.completed { border-color: rgba(22, 129, 95, .23); }
+html:not(.native-liquid-glass) .task-item.paused { border-color: rgba(173, 111, 20, .28); }
+html:not(.native-liquid-glass) .task-item.cancelled { opacity: .82; }
 html:not(.native-liquid-glass) .task-item-head { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 html:not(.native-liquid-glass) .task-item-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 html:not(.native-liquid-glass) .task-state { flex: 0 0 auto; color: var(--muted); font-size: 10px; }
 html:not(.native-liquid-glass) .task-item.running .task-state { color: var(--blue); }
 html:not(.native-liquid-glass) .task-item.completed .task-state { color: var(--green); }
 html:not(.native-liquid-glass) .task-item.failed .task-state { color: var(--red); }
+html:not(.native-liquid-glass) .task-item.paused .task-state { color: #9b650f; }
 html:not(.native-liquid-glass) .task-phase { min-width: 0; margin-top: 5px; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 html:not(.native-liquid-glass) .task-progress-track { height: 5px; margin-top: 11px; overflow: hidden; border-radius: 3px; background: var(--surface-soft); }
 html:not(.native-liquid-glass) .task-progress-bar { height: 100%; border-radius: inherit; background: var(--blue); transition: width .16s linear; }
 html:not(.native-liquid-glass) .task-item.completed .task-progress-bar { background: var(--green); }
 html:not(.native-liquid-glass) .task-item.failed .task-progress-bar { background: var(--red); }
+html:not(.native-liquid-glass) .task-item.paused .task-progress-bar { background: #b57a19; }
+html:not(.native-liquid-glass) .task-item.cancelled .task-progress-bar { background: var(--muted); }
 html:not(.native-liquid-glass) .task-meta { min-width: 0; display: flex; justify-content: space-between; gap: 10px; margin-top: 7px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 html:not(.native-liquid-glass) .task-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:not(.native-liquid-glass) .task-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 11px; }
+html:not(.native-liquid-glass) .task-actions .button { min-height: 32px; padding: 5px 10px; font-size: 11px; }
+html:not(.native-liquid-glass) .task-actions .button.danger { border-color: rgba(189, 53, 64, .3); color: var(--red); }
 html:not(.native-liquid-glass) .task-center-footer { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--line); }
 
 @media (prefers-color-scheme: dark) {

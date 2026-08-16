@@ -3026,11 +3026,14 @@ mod tests {
         capture_mode_from_event_body, capture_mode_from_full_status_body, encode_varint,
         extract_complete_ucd2_frames, gimbal_device_axes_from_ui, gimbal_speed_from_event_body,
         is_hevc_keyframe, parse_camera_subdirs, parse_file_list_paths, parse_index,
-        recording_state_from_event_body, resolve_camera_video_profile, same_ipv4_subnet,
-        ucd2_checksum, zoom_from_capture_settings_body,
+        recording_state_from_event_body, resolve_camera_video_profile,
+        resume_download_authenticated_with_progress, same_ipv4_subnet, ucd2_checksum,
+        zoom_from_capture_settings_body,
     };
 
-    use std::net::Ipv4Addr;
+    use std::io::{Read, Write};
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::thread;
 
     fn hex_bytes(input: &str) -> Vec<u8> {
         input
@@ -3052,6 +3055,46 @@ mod tests {
             Ipv4Addr::new(255, 255, 255, 0),
             camera
         ));
+    }
+
+    #[test]
+    fn failed_download_removes_partial_file() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind test server");
+        let address = listener.local_addr().expect("test server address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept test client");
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request);
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nabcdef",
+                )
+                .expect("write test response");
+        });
+
+        let root = std::env::current_dir()
+            .expect("test current directory")
+            .join("target")
+            .join(format!("download-cleanup-{}", std::process::id()));
+        std::fs::create_dir_all(&root).expect("create test output");
+        let output = root.join("sample.bin");
+        let result = resume_download_authenticated_with_progress(
+            &format!("http://{address}/sample.bin"),
+            &output,
+            |downloaded, _| {
+                if downloaded > 0 {
+                    Err(anyhow::anyhow!("test cancellation"))
+                } else {
+                    Ok(())
+                }
+            },
+        );
+
+        assert!(result.is_err());
+        assert!(!output.exists());
+        assert!(!output.with_extension("binpart").exists());
+        server.join().expect("test server thread");
+        std::fs::remove_dir_all(root).expect("remove test output");
     }
 
     #[test]
@@ -4002,7 +4045,7 @@ pub fn resume_download_with_session(
 }
 
 pub fn resume_download_authenticated(file_url: &str, output: &Path) -> anyhow::Result<()> {
-    resume_download_authenticated_with_progress(file_url, output, |_, _| {})
+    resume_download_authenticated_with_progress(file_url, output, |_, _| Ok(()))
 }
 
 pub fn resume_download_authenticated_with_progress<F>(
@@ -4011,7 +4054,7 @@ pub fn resume_download_authenticated_with_progress<F>(
     mut progress: F,
 ) -> anyhow::Result<()>
 where
-    F: FnMut(u64, Option<u64>),
+    F: FnMut(u64, Option<u64>) -> anyhow::Result<()>,
 {
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent)?;
@@ -4024,74 +4067,82 @@ where
 
     let existing = partial.metadata().map(|m| m.len()).unwrap_or(0);
 
-    let parsed_url = reqwest::Url::parse(file_url).context("相机媒体地址无效")?;
-    let camera_host = parsed_url
-        .host_str()
-        .ok_or_else(|| anyhow!("相机媒体地址缺少主机"))?;
-    let client_builder = Client::builder()
-        .no_proxy()
-        .connect_timeout(CAMERA_CONNECT_TIMEOUT)
-        .timeout(Duration::from_secs(2 * 60 * 60));
-    let client_builder =
-        bind_camera_http_client(client_builder, camera_host).map_err(anyhow::Error::msg)?;
+    let result = (|| -> anyhow::Result<()> {
+        let parsed_url = reqwest::Url::parse(file_url).context("相机媒体地址无效")?;
+        let camera_host = parsed_url
+            .host_str()
+            .ok_or_else(|| anyhow!("相机媒体地址缺少主机"))?;
+        let client_builder = Client::builder()
+            .no_proxy()
+            .connect_timeout(CAMERA_CONNECT_TIMEOUT)
+            .timeout(Duration::from_secs(2 * 60 * 60));
+        let client_builder =
+            bind_camera_http_client(client_builder, camera_host).map_err(anyhow::Error::msg)?;
 
-    let mut req = client_builder
-        .build()?
-        .get(file_url)
-        .header(USER_AGENT, "Insta360Linker/0.2")
-        .header(ACCEPT_ENCODING, "identity");
+        let mut req = client_builder
+            .build()?
+            .get(file_url)
+            .header(USER_AGENT, "Insta360Linker/0.2")
+            .header(ACCEPT_ENCODING, "identity");
 
-    if existing > 0 {
-        req = req.header(RANGE, format!("bytes={existing}-"));
-    }
-
-    let mut response = req.send()?.error_for_status()?;
-    let resumed = existing > 0 && response.status() == StatusCode::PARTIAL_CONTENT;
-    let initial = if resumed { existing } else { 0 };
-    let total = response.content_length().map(|length| initial + length);
-
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .append(resumed)
-        .truncate(!resumed)
-        .open(&partial)?;
-
-    let mut downloaded = initial;
-    let mut buffer = vec![0_u8; 256 * 1024];
-    let mut last_report = Instant::now()
-        .checked_sub(Duration::from_secs(1))
-        .unwrap_or_else(Instant::now);
-    progress(downloaded, total);
-    loop {
-        let count = response.read(&mut buffer)?;
-        if count == 0 {
-            break;
+        if existing > 0 {
+            req = req.header(RANGE, format!("bytes={existing}-"));
         }
-        file.write_all(&buffer[..count])?;
-        downloaded += count as u64;
-        let now = Instant::now();
-        if now.duration_since(last_report) >= Duration::from_millis(120)
-            || total.is_some_and(|expected| downloaded >= expected)
+
+        let mut response = req.send()?.error_for_status()?;
+        let resumed = existing > 0 && response.status() == StatusCode::PARTIAL_CONTENT;
+        let initial = if resumed { existing } else { 0 };
+        let total = response.content_length().map(|length| initial + length);
+
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(resumed)
+            .truncate(!resumed)
+            .open(&partial)?;
+
+        let mut downloaded = initial;
+        let mut buffer = vec![0_u8; 256 * 1024];
+        let mut last_report = Instant::now()
+            .checked_sub(Duration::from_secs(1))
+            .unwrap_or_else(Instant::now);
+        progress(downloaded, total)?;
+        loop {
+            let count = response.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            file.write_all(&buffer[..count])?;
+            downloaded += count as u64;
+            let now = Instant::now();
+            if now.duration_since(last_report) >= Duration::from_millis(120)
+                || total.is_some_and(|expected| downloaded >= expected)
+            {
+                progress(downloaded, total)?;
+                last_report = now;
+            }
+        }
+        file.flush()?;
+        progress(downloaded, total)?;
+
+        if let Some(expected) = total
+            && downloaded != expected
         {
-            progress(downloaded, total);
-            last_report = now;
+            return Err(anyhow!(
+                "相机媒体下载不完整：已接收 {downloaded} 字节，应为 {expected} 字节"
+            ));
         }
-    }
-    file.flush()?;
-    progress(downloaded, total);
 
-    if let Some(expected) = total
-        && downloaded != expected
-    {
-        return Err(anyhow!(
-            "相机媒体下载不完整：已接收 {downloaded} 字节，应为 {expected} 字节"
-        ));
+        fs::rename(&partial, output)?;
+
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&partial);
     }
 
-    fs::rename(partial, output)?;
-
-    Ok(())
+    result
 }
 
 fn parse_camera_subdirs(html: &str) -> anyhow::Result<Vec<String>> {
