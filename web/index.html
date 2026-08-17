@@ -237,9 +237,7 @@
     .capture-setting-heading .capture-setting-label { margin-bottom: 0; }
     .capture-setting-value { color: var(--ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
     .capture-setting-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; }
-    .capture-zoom { width: 100%; display: grid; }
-    .capture-zoom { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .capture-zoom .segment { min-width: 0; min-height: 32px; padding-inline: 6px; font-size: 11px; white-space: normal; }
+    .capture-zoom { width: 100%; accent-color: var(--accent); }
     .video-profile-grid { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
     .video-profile-field { min-width: 0; display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
     .video-profile-field.fps { grid-column: 1 / -1; }
@@ -1347,15 +1345,10 @@
                 <div class="capture-settings">
                   <div class="capture-setting">
                     <div class="capture-setting-heading">
-                      <span class="capture-setting-label">快捷变焦</span>
+                      <span class="capture-setting-label">变焦</span>
                       <output id="cameraZoomValue" class="capture-setting-value" aria-label="相机当前变焦">--</output>
                     </div>
-                    <div class="segmented capture-zoom" aria-label="快捷变焦倍数">
-                      <button class="segment" data-camera-zoom="1">1×</button>
-                      <button class="segment" data-camera-zoom="2">2×</button>
-                      <button class="segment" data-camera-zoom="3">3×</button>
-                      <button class="segment" data-camera-zoom="6">6×</button>
-                    </div>
+                    <input id="cameraZoom" class="capture-zoom" type="range" min="1" max="12" step="0.1" value="1" aria-label="相机变焦倍数">
                   </div>
                   <div id="videoProfileSetting" class="capture-setting" hidden>
                     <span class="capture-setting-label">录像规格</span>
@@ -1672,7 +1665,7 @@
 
     function cameraZoomValue(value) {
       const zoom = Number(value);
-      return Number.isFinite(zoom) && zoom > 0 ? zoom : null;
+      return Number.isFinite(zoom) && zoom >= 1 && zoom <= 12 ? zoom : null;
     }
 
     function cameraZoomEquals(left, right) {
@@ -1684,7 +1677,7 @@
     function formatCameraZoom(value) {
       const zoom = cameraZoomValue(value);
       if (zoom === null) return "--";
-      return `${Number.isInteger(zoom) ? zoom.toFixed(0) : zoom.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}×`;
+      return `${zoom.toFixed(1)}×`;
     }
 
     function selectedVideoFormat() {
@@ -1791,9 +1784,7 @@
       document.querySelectorAll("[data-capture-mode]").forEach(button => {
         button.disabled = !state.controlReady || state.recording || controlBusy;
       });
-      document.querySelectorAll("[data-camera-zoom]").forEach(button => {
-        button.disabled = !state.controlReady || !state.captureMode || controlBusy;
-      });
+      $("cameraZoom").disabled = !state.controlReady || !state.captureMode || controlBusy;
       const videoProfileDisabled = !state.controlReady || state.captureMode !== "video" || state.recording || controlBusy;
       $("videoResolution").disabled = videoProfileDisabled;
       $("videoAspect").disabled = videoProfileDisabled || !$("videoResolution").value;
@@ -1915,9 +1906,8 @@
       document.querySelectorAll("[data-capture-mode]").forEach(button => {
         button.classList.toggle("active", button.dataset.captureMode === state.captureMode);
       });
-      document.querySelectorAll("[data-camera-zoom]").forEach(button => {
-        button.classList.toggle("active", cameraZoomEquals(button.dataset.cameraZoom, state.cameraZoom));
-      });
+      const currentZoom = cameraZoomValue(state.cameraZoom);
+      if (currentZoom !== null) $("cameraZoom").value = currentZoom.toFixed(1);
       $("cameraZoomValue").textContent = formatCameraZoom(state.cameraZoom);
       $("videoProfileSetting").hidden = state.captureMode !== "video";
       const currentVideoFormat = videoFormatById(state.videoFormat);
@@ -3143,12 +3133,16 @@
         updateCaptureUi();
       });
     });
-    document.querySelectorAll("[data-camera-zoom]").forEach(button => {
-      button.addEventListener("click", () => {
-        const zoom = Number(button.dataset.cameraZoom);
-        if (!state.controlReady || !state.captureMode || cameraZoomEquals(state.cameraZoom, zoom)) return;
-        send("camera_set_zoom", { host: host(), zoom });
-      });
+    $("cameraZoom").addEventListener("input", event => {
+      $("cameraZoomValue").textContent = formatCameraZoom(event.target.value);
+    });
+    $("cameraZoom").addEventListener("change", event => {
+      const zoom = cameraZoomValue(event.target.value);
+      if (!state.controlReady || !state.captureMode || zoom === null || cameraZoomEquals(state.cameraZoom, zoom)) {
+        updateCaptureUi();
+        return;
+      }
+      send("camera_set_zoom", { host: host(), zoom });
     });
     $("videoResolution").addEventListener("change", () => {
       populateVideoAspectOptions();

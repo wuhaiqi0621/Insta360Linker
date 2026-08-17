@@ -2335,8 +2335,12 @@ fn build_capture_mode_body(mode: CameraCaptureMode) -> Vec<u8> {
 }
 
 fn build_zoom_body(zoom: f64, mode: CameraCaptureMode) -> anyhow::Result<Vec<u8>> {
-    if ![1.0, 2.0, 3.0, 6.0].contains(&zoom) {
-        anyhow::bail!("当前只开放抓包确认的 1×、2×、3× 和 6× 快捷变焦");
+    let tenths = (zoom * 10.0).round();
+    if !zoom.is_finite()
+        || !(1.0..=12.0).contains(&zoom)
+        || (zoom * 10.0 - tenths).abs() > 0.000_001
+    {
+        anyhow::bail!("Luna Ultra 变焦必须在 1.0× 到 12.0× 之间，并使用 0.1× 步进");
     }
     let mut body = vec![0x08, 0x35, 0x12, 0x0a, 0xa9, 0x03];
     body.extend_from_slice(&zoom.to_le_bytes());
@@ -3387,7 +3391,18 @@ mod tests {
             build_zoom_body(6.0, CameraCaptureMode::Video).unwrap(),
             hex_bytes("08 35 12 0a a9 03 00 00 00 00 00 00 18 40 18 07")
         );
-        assert!(build_zoom_body(4.0, CameraCaptureMode::Video).is_err());
+        assert!(build_zoom_body(4.0, CameraCaptureMode::Video).is_ok());
+        assert_eq!(
+            build_zoom_body(7.5, CameraCaptureMode::Video).unwrap(),
+            hex_bytes("08 35 12 0a a9 03 00 00 00 00 00 00 1e 40 18 07")
+        );
+        assert_eq!(
+            build_zoom_body(12.0, CameraCaptureMode::Video).unwrap(),
+            hex_bytes("08 35 12 0a a9 03 00 00 00 00 00 00 28 40 18 07")
+        );
+        assert!(build_zoom_body(0.9, CameraCaptureMode::Video).is_err());
+        assert!(build_zoom_body(12.1, CameraCaptureMode::Video).is_err());
+        assert!(build_zoom_body(1.05, CameraCaptureMode::Video).is_err());
         assert!(build_zoom_body(f64::NAN, CameraCaptureMode::Video).is_err());
     }
 

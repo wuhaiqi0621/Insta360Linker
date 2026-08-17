@@ -930,6 +930,22 @@ fn handle_command(req: UiRequest, state: AppState) -> anyhow::Result<Value> {
             }))
         }
 
+        "prepare_media_preview" => {
+            let payload: PrepareWatermarkMediaPayload = serde_json::from_value(req.payload)?;
+            ensure_media_session(&state, &payload.host)?;
+            adapters::luna_local::camera_path_from_url(&payload.host, &payload.url)?;
+
+            let output = cached_media_preview_path(&payload.url)?;
+            if !output.is_file() || output.metadata().map(|meta| meta.len()).unwrap_or(0) == 0 {
+                adapters::luna_local::resume_download_authenticated(&payload.url, &output)?;
+            }
+            Ok(json!({
+                "message": "相机素材已载入原生预览",
+                "path": output.display().to_string(),
+                "name": download_filename(&payload.url),
+            }))
+        }
+
         "prepare_watermark_media" => {
             let payload: PrepareWatermarkMediaPayload = serde_json::from_value(req.payload)?;
             ensure_media_session(&state, &payload.host)?;
@@ -2159,6 +2175,27 @@ fn cached_watermark_source_path(url: &str) -> anyhow::Result<PathBuf> {
     let mut hasher = DefaultHasher::new();
     url.hash(&mut hasher);
     let file_name = format!("{:016x}-{}", hasher.finish(), download_filename(url));
+    Ok(root.join(file_name))
+}
+
+fn cached_media_preview_path(url: &str) -> anyhow::Result<PathBuf> {
+    let root = desktop_cache_root().join("media-previews");
+    std::fs::create_dir_all(&root)?;
+
+    let mut hasher = DefaultHasher::new();
+    url.hash(&mut hasher);
+    let mut file_name = PathBuf::from(format!(
+        "{:016x}-{}",
+        hasher.finish(),
+        download_filename(url)
+    ));
+    let extension = file_name
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if extension.eq_ignore_ascii_case("lrv") || extension.eq_ignore_ascii_case("insv") {
+        file_name.set_extension("mp4");
+    }
     Ok(root.join(file_name))
 }
 

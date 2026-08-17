@@ -18,9 +18,13 @@ final class AppModel: ObservableObject {
     @Published var videoFPS = 30
     @Published var storage = "all"
     @Published var mediaFilter = "all"
+    @Published var mediaSort: MediaSortOrder = .newest
+    @Published var mediaDensity: MediaDensity = .comfortable
     @Published var media: [MediaItem] = []
     @Published var selectedMedia: Set<String> = []
     @Published var thumbnails: [String: NSImage] = [:]
+    @Published var preparingPreviewURL: String?
+    @Published var mediaPreview: MediaPreview?
     @Published var watermarkStyles: [WatermarkStyleOption] = []
     @Published var frameBackgrounds: [FrameBackgroundOption] = []
     @Published var watermarkInput = ""
@@ -31,8 +35,11 @@ final class AppModel: ObservableObject {
     @Published var momentImage = ""
     @Published var watermarkPreview: NSImage?
     @Published var micDevices: [MicDevice] = []
-    @Published var micDetails: [String] = []
+    @Published var micDetails: [MicCharacteristic] = []
     @Published var selectedMic: MicDevice?
+    @Published var selectedMicCharacteristic: MicCharacteristic?
+    @Published var micWriteHex = ""
+    @Published var recordingStartedAt: Date?
     @Published var busy: Set<String> = []
     @Published var notice: String?
     @Published var errorMessage: String?
@@ -40,8 +47,36 @@ final class AppModel: ObservableObject {
 
     let backend = BackendClient()
 
+    private var linkedVideoPreviews: [String: MediaItem] {
+        media.reduce(into: [:]) { result, item in
+            guard item.isLowResolutionPreview, let key = item.mediaPairKey else { return }
+            result[key] = item
+        }
+    }
+
+    private var linkedPreviewURLs: Set<String> {
+        let previews = linkedVideoPreviews
+        return Set(media.compactMap { item in
+            guard item.isVideo,
+                  !item.isLowResolutionPreview,
+                  let key = item.mediaPairKey,
+                  let preview = previews[key]
+            else { return nil }
+            return preview.url
+        })
+    }
+
+    var logicalMedia: [MediaItem] {
+        let hiddenURLs = linkedPreviewURLs
+        return media.filter { !hiddenURLs.contains($0.url) }
+    }
+
     var visibleMedia: [MediaItem] {
-        media.filter { mediaFilter == "all" || $0.mediaCategory == mediaFilter }
+        logicalMedia
+            .filter { mediaFilter == "all" || $0.mediaCategory == mediaFilter }
+            .sorted {
+                mediaSort == .newest ? $0.sortKey > $1.sortKey : $0.sortKey < $1.sortKey
+            }
     }
 
     var selectedWatermarkMedia: MediaItem? {
@@ -86,12 +121,10 @@ final class AppModel: ObservableObject {
             && (!watermarkUsesCustomMoment || !momentImage.isEmpty)
     }
 
+    let videoFormats = VideoFormatOption.lunaUltra
+
     var availableVideoFPS: [Int] {
-        switch videoFormat {
-        case "8k_16_9": [30, 25, 24]
-        case "3k_1_1": [60, 50, 48, 30, 25, 24]
-        default: [120, 100, 60, 50, 48, 30, 25, 24]
-        }
+        videoFormats.first { $0.id == videoFormat }?.fpsValues ?? [30, 25, 24]
     }
 
     func syncVideoFPS() {
@@ -104,7 +137,33 @@ final class AppModel: ObservableObject {
         loadWatermarkCatalog()
     }
 
-    func perform(_ command: String, payload: [String: Any] = [:], completion: (([String: Any]) -> Void)? = nil) {
+    func perform(_ command: String, payload: [String: Any] = [:]) {
+        execute(command, payload: payload, failure: nil, completion: nil)
+    }
+
+    func perform(
+        _ command: String,
+        payload: [String: Any] = [:],
+        completion: @escaping ([String: Any]) -> Void
+    ) {
+        execute(command, payload: payload, failure: nil, completion: completion)
+    }
+
+    func perform(
+        _ command: String,
+        payload: [String: Any] = [:],
+        failure: @escaping (Error) -> Void,
+        completion: @escaping ([String: Any]) -> Void
+    ) {
+        execute(command, payload: payload, failure: failure, completion: completion)
+    }
+
+    private func execute(
+        _ command: String,
+        payload: [String: Any],
+        failure: ((Error) -> Void)?,
+        completion: (([String: Any]) -> Void)?
+    ) {
         busy.insert(command)
         backend.call(command, payload: payload) { [weak self] result in
             guard let self else { return }
@@ -114,6 +173,7 @@ final class AppModel: ObservableObject {
                 completion?(data)
             case .failure(let error):
                 self.errorMessage = error.localizedDescription
+                failure?(error)
             }
         }
     }
@@ -133,6 +193,9 @@ final class AppModel: ObservableObject {
             self.connected = false
             self.controlReady = false
             self.previewing = false
+            self.recording = false
+            self.recordingStartedAt = nil
+            self.mediaPreview = nil
             self.connectionMessage = data["message"] as? String ?? "相机会话已断开"
         }
     }
@@ -152,7 +215,7 @@ final class AppModel: ObservableObject {
         perform("list_media", payload: ["host": host, "storage": storage]) { data in
             let rows = data["value"] as? [[String: Any]] ?? []
             self.media = rows.compactMap(MediaItem.init)
-            self.selectedMedia = self.selectedMedia.intersection(Set(self.media.map(\.url)))
+            self.selectedMedia = self.selectedMedia.intersection(Set(self.logicalMedia.map(\.url)))
             self.connected = true
             self.connectionMessage = self.media.isEmpty ? "已连接，相机中暂无素材" : "已读取 \(self.media.count) 个素材"
         }
@@ -163,13 +226,23 @@ final class AppModel: ObservableObject {
         else { selectedMedia.insert(item.url) }
     }
 
+    func selectOnly(_ item: MediaItem) {
+        selectedMedia = [item.url]
+    }
+
+    func linkedPreview(for item: MediaItem) -> MediaItem? {
+        guard item.isVideo, !item.isLowResolutionPreview, let key = item.mediaPairKey else { return nil }
+        return linkedVideoPreviews[key]
+    }
+
     func loadThumbnail(for item: MediaItem) {
         guard thumbnails[item.url] == nil else { return }
+        let source = linkedPreview(for: item) ?? item
         perform("media_thumbnail", payload: [
             "host": host,
-            "url": item.url,
-            "cache_key": "\(item.date)-\(item.time)-\(item.sizeText)",
-            "media_type": item.kind,
+            "url": source.url,
+            "cache_key": "\(source.date)-\(source.time)-\(source.sizeText)",
+            "media_type": source.kind,
         ]) { data in
             guard let base64 = data["data"] as? String,
                   let bytes = Data(base64Encoded: base64),
@@ -179,15 +252,42 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func previewMedia(_ item: MediaItem) {
+        guard item.supportsPreview else {
+            errorMessage = "该相机素材格式暂不支持直接预览"
+            return
+        }
+        let source = linkedPreview(for: item) ?? item
+        preparingPreviewURL = item.url
+        perform(
+            "prepare_media_preview",
+            payload: ["host": host, "url": source.url],
+            failure: { _ in self.preparingPreviewURL = nil }
+        ) { data in
+            self.preparingPreviewURL = nil
+            guard let path = data["path"] as? String, !path.isEmpty else {
+                self.errorMessage = "相机素材没有返回可预览文件"
+                return
+            }
+            self.mediaPreview = MediaPreview(item: item, localURL: URL(fileURLWithPath: path))
+        }
+    }
+
     func downloadSelected() {
         let items = media.filter { selectedMedia.contains($0.url) }
         guard !items.isEmpty, let folder = chooseFolder() else { return }
         perform("download_batch", payload: [
             "host": host,
             "output_dir": folder,
-            "files": items.map { ["url": $0.url, "date": $0.date] },
+            "files": items.map { item in
+                var row: [String: Any] = ["url": item.url, "date": item.date]
+                if let bytes = item.bytes { row["bytes"] = bytes }
+                return row
+            },
         ]) { data in
             self.notice = data["message"] as? String ?? "下载完成"
+            let failedNames = Set((data["failed"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String })
+            self.selectedMedia = Set(self.logicalMedia.filter { failedNames.contains($0.name) }.map(\.url))
         }
     }
 
@@ -210,9 +310,12 @@ final class AppModel: ObservableObject {
     }
 
     func deleteSelected() {
-        let urls = Array(selectedMedia)
+        var urls = Set(selectedMedia)
+        for item in logicalMedia where selectedMedia.contains(item.url) {
+            if let preview = linkedPreview(for: item) { urls.insert(preview.url) }
+        }
         guard !urls.isEmpty else { return }
-        perform("delete_media", payload: ["host": host, "urls": urls]) { data in
+        perform("delete_media", payload: ["host": host, "urls": Array(urls)]) { data in
             self.notice = data["message"] as? String ?? "删除完成"
             self.selectedMedia.removeAll()
             self.reloadMedia()
@@ -226,6 +329,7 @@ final class AppModel: ObservableObject {
             self.captureMode = data["mode"] as? String ?? self.captureMode
             self.zoom = data["zoom"] as? Double ?? self.zoom
             self.recording = data["recording"] as? Bool ?? false
+            self.recordingStartedAt = self.recording ? Date() : nil
             self.connectionMessage = data["message"] as? String ?? "相机控制已就绪"
         }
     }
@@ -234,6 +338,7 @@ final class AppModel: ObservableObject {
         captureMode = mode
         perform("camera_set_capture_mode", payload: ["host": host, "mode": mode]) { data in
             self.captureMode = data["mode"] as? String ?? mode
+            self.zoom = data["zoom"] as? Double ?? self.zoom
             self.notice = data["message"] as? String
         }
     }
@@ -246,6 +351,8 @@ final class AppModel: ObservableObject {
 
     func setVideoProfile() {
         perform("camera_set_video_profile", payload: ["host": host, "format": videoFormat, "fps": videoFPS]) { data in
+            self.videoFormat = data["format"] as? String ?? self.videoFormat
+            self.videoFPS = data["fps"] as? Int ?? self.videoFPS
             self.notice = data["message"] as? String
         }
     }
@@ -253,7 +360,7 @@ final class AppModel: ObservableObject {
     func togglePreview() {
         let command = previewing ? "camera_stop_preview" : "camera_start_preview"
         perform(command, payload: ["host": host]) { data in
-            self.previewing.toggle()
+            self.previewing = command == "camera_start_preview"
             self.notice = data["message"] as? String
         }
     }
@@ -263,9 +370,17 @@ final class AppModel: ObservableObject {
         if captureMode == "photo" { command = "camera_take_photo" }
         else { command = recording ? "camera_stop_record" : "camera_start_record" }
         perform(command, payload: ["host": host]) { data in
-            if command == "camera_start_record" { self.recording = true }
-            if command == "camera_stop_record" { self.recording = false }
-            self.notice = data["message"] as? String
+            if command == "camera_start_record" {
+                self.recording = true
+                self.recordingStartedAt = Date()
+            }
+            if command == "camera_stop_record" {
+                self.recording = false
+                self.recordingStartedAt = nil
+            }
+            self.notice = data["media_path"] as? String ?? data["message"] as? String
+            if command == "camera_take_photo" { self.scheduleMediaReload(after: 4.5) }
+            if command == "camera_stop_record" { self.scheduleMediaReload(after: 1.8) }
         }
     }
 
@@ -275,6 +390,14 @@ final class AppModel: ObservableObject {
 
     func setGimbalSpeed() {
         perform("camera_set_gimbal_speed", payload: ["host": host, "level": gimbalSpeed])
+    }
+
+    private func scheduleMediaReload(after seconds: Double) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard let self, self.connected else { return }
+            self.reloadMedia()
+        }
     }
 
     func loadWatermarkCatalog() {
@@ -372,13 +495,28 @@ final class AppModel: ObservableObject {
 
     func inspectMic(_ device: MicDevice) {
         selectedMic = device
+        selectedMicCharacteristic = nil
+        micWriteHex = ""
         perform("inspect_ble", payload: ["address": device.address]) { data in
             let rows = data["value"] as? [[String: Any]] ?? []
-            self.micDetails = rows.map { row in
-                let uuid = row["uuid"] as? String ?? "未知特征"
-                let properties = (row["properties"] as? [String] ?? []).joined(separator: " · ")
-                return "\(uuid)\n\(properties)"
-            }
+            self.micDetails = rows.compactMap(MicCharacteristic.init)
+            self.selectedMicCharacteristic = self.micDetails.first(where: \.canWrite)
+        }
+    }
+
+    func writeMicCharacteristic() {
+        guard let device = selectedMic, let characteristic = selectedMicCharacteristic else { return }
+        let clean = micWriteHex.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "")
+        guard !clean.isEmpty, clean.count.isMultiple(of: 2), clean.allSatisfy({ $0.isHexDigit }) else {
+            errorMessage = "请输入偶数位十六进制数据"
+            return
+        }
+        perform("write_ble", payload: [
+            "address": device.address,
+            "uuid": characteristic.uuid,
+            "hex": clean,
+        ]) { data in
+            self.notice = data["message"] as? String ?? "GATT 写入完成"
         }
     }
 }

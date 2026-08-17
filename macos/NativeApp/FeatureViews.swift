@@ -1,9 +1,18 @@
 import AppKit
+import AVKit
 import SwiftUI
 
 struct MediaLibraryView: View {
     @ObservedObject var model: AppModel
-    private let columns = [GridItem(.adaptive(minimum: 190, maximum: 260), spacing: 14)]
+    private var columns: [GridItem] {
+        [GridItem(
+            .adaptive(
+                minimum: model.mediaDensity.minimumCardWidth,
+                maximum: model.mediaDensity.maximumCardWidth
+            ),
+            spacing: 14
+        )]
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -52,6 +61,21 @@ struct MediaLibraryView: View {
                             .pickerStyle(.segmented)
                             .frame(width: 220)
 
+                            Picker("排序", selection: $model.mediaSort) {
+                                ForEach(MediaSortOrder.allCases) { order in
+                                    Text(order.label).tag(order)
+                                }
+                            }
+                            .frame(width: 120)
+
+                            Picker("大小", selection: $model.mediaDensity) {
+                                ForEach(MediaDensity.allCases) { density in
+                                    Text(density.label).tag(density)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 110)
+
                             Spacer()
                             Text("\(model.visibleMedia.count) 个素材")
                                 .font(.caption)
@@ -71,7 +95,10 @@ struct MediaLibraryView: View {
                                         Button("添加水印") { model.prepareWatermark(from: item) }
                                             .disabled(model.busy.contains("prepare_watermark_media"))
                                     }
-                                    Button("下载所选") { model.downloadSelected() }
+                                    Button { model.downloadSelected() } label: {
+                                        BusyLabel(title: "下载所选", busy: model.busy.contains("download_batch"))
+                                    }
+                                    .disabled(model.busy.contains("download_batch"))
                                     Button(role: .destructive) { model.confirmingDelete = true } label: {
                                         Label("删除所选", systemImage: "trash")
                                     }
@@ -125,6 +152,9 @@ struct MediaLibraryView: View {
         } message: {
             Text("此操作会直接删除相机存储中的原文件，无法撤销。")
         }
+        .sheet(item: $model.mediaPreview) { preview in
+            MediaPreviewSheet(model: model, preview: preview)
+        }
     }
 }
 
@@ -135,44 +165,46 @@ struct MediaCard: View {
     private var selected: Bool { model.selectedMedia.contains(item.url) }
 
     var body: some View {
-        Button { model.toggleSelection(item) } label: {
-            VStack(alignment: .leading, spacing: 9) {
-                ZStack {
-                    if let image = model.thumbnails[item.url] {
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Rectangle().fill(.quaternary)
-                        Image(systemName: item.isVideo ? "video.fill" : "photo.fill")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                    }
-                    if item.isVideo {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 34))
-                            .foregroundStyle(.white)
-                            .shadow(radius: 5)
-                    }
+        VStack(alignment: .leading, spacing: 9) {
+            ZStack {
+                if let image = model.thumbnails[item.url] {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle().fill(.quaternary)
+                    Image(systemName: item.isVideo ? "video.fill" : "photo.fill")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
                 }
-                .frame(height: 125)
-                .clipShape(.rect(cornerRadius: 8))
-
-                Text(item.name)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                HStack {
-                    Text(item.date + " " + item.time)
-                    Spacer()
-                    Text(item.sizeText)
+                if item.isVideo {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.white)
+                        .shadow(radius: 5)
                 }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                if model.preparingPreviewURL == item.url {
+                    Rectangle().fill(.black.opacity(0.45))
+                    ProgressView().controlSize(.large)
+                }
             }
-            .padding(10)
-            .contentShape(.rect)
+            .frame(height: model.mediaDensity.previewHeight)
+            .clipShape(.rect(cornerRadius: 8))
+
+            Text(item.name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            HStack {
+                Text(item.date + " " + item.time)
+                Spacer()
+                Text(item.sizeText)
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
+        .padding(10)
+        .contentShape(.rect)
+        .onTapGesture { model.previewMedia(item) }
         .background(
             selected ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor),
             in: .rect(cornerRadius: 10)
@@ -182,21 +214,140 @@ struct MediaCard: View {
                 .stroke(selected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: selected ? 2 : 1)
         }
         .overlay(alignment: .topTrailing) {
-            if selected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.white, Color.accentColor)
+            Button { model.toggleSelection(item) } label: {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selected ? .white : .white, selected ? Color.accentColor : .black.opacity(0.45))
                     .font(.title3)
-                    .padding(8)
             }
+            .buttonStyle(.borderless)
+            .padding(8)
+            .help(selected ? "取消选择" : "选择")
         }
         .onAppear { model.loadThumbnail(for: item) }
         .contextMenu {
+            Button { model.previewMedia(item) } label: {
+                Label("预览", systemImage: "eye")
+            }
+            Button { model.toggleSelection(item) } label: {
+                Label(selected ? "取消选择" : "选择", systemImage: selected ? "checkmark.circle.fill" : "circle")
+            }
+            Divider()
             if item.supportsWatermark {
                 Button { model.prepareWatermark(from: item) } label: {
                     Label("添加水印", systemImage: "signature")
                 }
             }
+            Button {
+                model.selectOnly(item)
+                model.downloadSelected()
+            } label: {
+                Label("下载", systemImage: "arrow.down.circle")
+            }
+            Divider()
+            Button(role: .destructive) {
+                model.selectOnly(item)
+                model.confirmingDelete = true
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
         }
+    }
+}
+
+struct MediaPreviewSheet: View {
+    @ObservedObject var model: AppModel
+    let preview: MediaPreview
+
+    var body: some View {
+        HSplitView {
+            ZStack {
+                Color.black
+                if preview.item.isVideo {
+                    NativeVideoPreview(url: preview.localURL)
+                } else if let image = NSImage(contentsOf: preview.localURL) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(18)
+                } else {
+                    ContentUnavailableView(
+                        "无法显示预览",
+                        systemImage: "photo.badge.exclamationmark",
+                        description: Text("缓存文件不是可识别的图片")
+                    )
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .frame(minWidth: 560, maxWidth: .infinity, maxHeight: .infinity)
+
+            Form {
+                Section("素材信息") {
+                    LabeledContent("文件名", value: preview.item.name)
+                    LabeledContent("类型", value: preview.item.isVideo ? "视频" : "照片")
+                    LabeledContent("存储", value: preview.item.storageLabel)
+                    LabeledContent("拍摄时间", value: preview.item.date + " " + preview.item.time)
+                    if !preview.item.sizeText.isEmpty {
+                        LabeledContent("大小", value: preview.item.sizeText)
+                    }
+                }
+
+                Section("操作") {
+                    if preview.item.supportsWatermark {
+                        Button {
+                            model.mediaPreview = nil
+                            model.prepareWatermark(from: preview.item)
+                        } label: {
+                            Label("添加水印", systemImage: "signature")
+                        }
+                    }
+                    Button {
+                        model.mediaPreview = nil
+                        model.selectOnly(preview.item)
+                        model.downloadSelected()
+                    } label: {
+                        Label("下载原文件…", systemImage: "arrow.down.circle")
+                    }
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([preview.localURL])
+                    } label: {
+                        Label("在 Finder 中显示缓存", systemImage: "folder")
+                    }
+                }
+
+                Section {
+                    Button("关闭") { model.mediaPreview = nil }
+                        .keyboardShortcut(.cancelAction)
+                }
+            }
+            .formStyle(.grouped)
+            .frame(minWidth: 300, idealWidth: 340, maxWidth: 380)
+        }
+        .frame(minWidth: 900, minHeight: 600)
+    }
+}
+
+private struct NativeVideoPreview: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context _: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .floating
+        view.videoGravity = .resizeAspect
+        view.player = AVPlayer(url: url)
+        view.player?.play()
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context _: Context) {
+        if (view.player?.currentItem?.asset as? AVURLAsset)?.url != url {
+            view.player = AVPlayer(url: url)
+            view.player?.play()
+        }
+    }
+
+    static func dismantleNSView(_ view: AVPlayerView, coordinator _: ()) {
+        view.player?.pause()
+        view.player = nil
     }
 }
 
@@ -211,9 +362,13 @@ struct CaptureControlView: View {
                         Label(model.previewing ? "实时取景中" : "实时取景", systemImage: "viewfinder")
                             .font(.headline)
                         Spacer()
+                        if model.recording, let startedAt = model.recordingStartedAt {
+                            RecordingElapsedView(startedAt: startedAt)
+                        }
                         if model.controlReady {
                             Button(model.previewing ? "停止监看" : "开始监看") { model.togglePreview() }
                                 .buttonStyle(.glassProminent)
+                                .disabled(model.busy.contains("camera_start_preview") || model.busy.contains("camera_stop_preview"))
                         }
                     }
 
@@ -280,21 +435,19 @@ struct CaptureControlView: View {
                 if model.controlReady {
                     Section("镜头") {
                         LabeledContent("变焦", value: String(format: "%.1f×", model.zoom))
-                        Slider(value: $model.zoom, in: 1 ... 4, step: 0.1) { editing in
+                        Slider(value: $model.zoom, in: 1 ... 12, step: 0.1) { editing in
                             if !editing { model.setZoom() }
                         }
+                        .disabled(model.busy.contains("camera_set_zoom"))
                     }
                 }
 
                 if model.controlReady && model.captureMode == "video" {
                     Section("录像规格") {
                         Picker("分辨率", selection: $model.videoFormat) {
-                            Text("8K 16:9").tag("8k_16_9")
-                            Text("4K 16:9").tag("4k_16_9")
-                            Text("4K 2.35:1").tag("4k_2_35_1")
-                            Text("3K 1:1").tag("3k_1_1")
-                            Text("2.7K 16:9").tag("2_7k_16_9")
-                            Text("1080p 16:9").tag("1080p_16_9")
+                            ForEach(model.videoFormats) { format in
+                                Text(format.label).tag(format.id)
+                            }
                         }
                         .disabled(model.recording)
                         .onChange(of: model.videoFormat) { _, _ in model.syncVideoFPS() }
@@ -309,15 +462,16 @@ struct CaptureControlView: View {
 
                 if model.controlReady {
                     Section("云台") {
-                        LabeledContent("移动速度", value: "\(model.gimbalSpeed)")
                         GimbalPad(model: model)
                             .frame(maxWidth: .infinity)
-                        Slider(value: Binding(
-                            get: { Double(model.gimbalSpeed) },
-                            set: { model.gimbalSpeed = Int($0.rounded()) }
-                        ), in: 1 ... 5, step: 1) { editing in
-                            if !editing { model.setGimbalSpeed() }
+                        Picker("移动速度", selection: $model.gimbalSpeed) {
+                            Text("慢").tag(1)
+                            Text("中").tag(2)
+                            Text("快").tag(3)
                         }
+                        .pickerStyle(.segmented)
+                        .disabled(model.busy.contains("camera_set_gimbal_speed"))
+                        .onChange(of: model.gimbalSpeed) { _, _ in model.setGimbalSpeed() }
                     }
                 }
             }
@@ -332,18 +486,34 @@ struct GimbalPad: View {
 
     var body: some View {
         Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-            GridRow { Color.clear.frame(width: 42); moveButton("chevron.up", 0, 1); Color.clear.frame(width: 42) }
-            GridRow { moveButton("chevron.left", -1, 0); moveButton("scope", 0, 0); moveButton("chevron.right", 1, 0) }
-            GridRow { Color.clear.frame(width: 42); moveButton("chevron.down", 0, -1); Color.clear.frame(width: 42) }
+            GridRow { Color.clear.frame(width: 42); moveButton("chevron.up", 0, -72); Color.clear.frame(width: 42) }
+            GridRow { moveButton("chevron.left", -72, 0); moveButton("stop.fill", 0, 0); moveButton("chevron.right", 72, 0) }
+            GridRow { Color.clear.frame(width: 42); moveButton("chevron.down", 0, 72); Color.clear.frame(width: 42) }
         }
     }
 
     private func moveButton(_ symbol: String, _ x: Int, _ y: Int) -> some View {
-        Button { if x != 0 || y != 0 { model.moveGimbal(x: x, y: y) } } label: {
+        Button { model.moveGimbal(x: x, y: y) } label: {
             Image(systemName: symbol).frame(width: 42, height: 34)
         }
         .buttonStyle(.glass)
-        .disabled(!model.controlReady)
+        .disabled(!model.controlReady || model.busy.contains("camera_gimbal_move"))
+    }
+}
+
+private struct RecordingElapsedView: View {
+    let startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let elapsed = max(0, Int(context.date.timeIntervalSince(startedAt)))
+            Label(
+                String(format: "%02d:%02d", elapsed / 60, elapsed % 60),
+                systemImage: "record.circle.fill"
+            )
+            .font(.caption.monospacedDigit().weight(.semibold))
+            .foregroundStyle(.red)
+        }
     }
 }
 
@@ -512,8 +682,42 @@ struct MicProView: View {
                             if model.busy.contains("inspect_ble") {
                                 ProgressView("正在读取 GATT 特征…")
                             }
-                            ForEach(Array(model.micDetails.enumerated()), id: \.offset) { _, detail in
-                                Text(detail).font(.caption.monospaced())
+                            ForEach(model.micDetails) { characteristic in
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(characteristic.uuid)
+                                        .font(.caption.monospaced())
+                                    Text(characteristic.propertyText.isEmpty ? "无属性信息" : characteristic.propertyText)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    if !characteristic.serviceUUID.isEmpty {
+                                        Text("服务 \(characteristic.serviceUUID)")
+                                            .font(.caption2.monospaced())
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+
+                        if model.micDetails.contains(where: \.canWrite) {
+                            Section("写入 GATT") {
+                                Picker("特征", selection: $model.selectedMicCharacteristic) {
+                                    Text("请选择").tag(nil as MicCharacteristic?)
+                                    ForEach(model.micDetails.filter(\.canWrite)) { characteristic in
+                                        Text(characteristic.uuid).tag(Optional(characteristic))
+                                    }
+                                }
+                                TextField("十六进制数据，例如 01 FF", text: $model.micWriteHex)
+                                    .textFieldStyle(.roundedBorder)
+                                Button { model.writeMicCharacteristic() } label: {
+                                    BusyLabel(title: "写入特征", busy: model.busy.contains("write_ble"))
+                                }
+                                .buttonStyle(.glassProminent)
+                                .disabled(
+                                    model.selectedMicCharacteristic == nil
+                                        || model.micWriteHex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        || model.busy.contains("write_ble")
+                                )
                             }
                         }
                     }

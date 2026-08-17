@@ -1,5 +1,5 @@
 use anyhow::Context;
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, WriteType};
+use btleplug::api::{Central, CharPropFlags, Manager as _, Peripheral as _, ScanFilter, WriteType};
 use btleplug::platform::Manager;
 use serde::Serialize;
 use std::time::Duration;
@@ -75,11 +75,20 @@ pub async fn write_hex(address: &str, characteristic_uuid: &str, hex: &str) -> a
         .into_iter()
         .find(|c| c.uuid.to_string().eq_ignore_ascii_case(characteristic_uuid))
         .context("characteristic not found")?;
-    peripheral
-        .write(&target, &bytes, WriteType::WithResponse)
-        .await?;
+    let write_type = characteristic_write_type(target.properties)?;
+    peripheral.write(&target, &bytes, write_type).await?;
     let _ = peripheral.disconnect().await;
     Ok(())
+}
+
+fn characteristic_write_type(properties: CharPropFlags) -> anyhow::Result<WriteType> {
+    if properties.contains(CharPropFlags::WRITE) {
+        Ok(WriteType::WithResponse)
+    } else if properties.contains(CharPropFlags::WRITE_WITHOUT_RESPONSE) {
+        Ok(WriteType::WithoutResponse)
+    } else {
+        anyhow::bail!("characteristic is not writable")
+    }
 }
 
 async fn find(address: &str) -> anyhow::Result<btleplug::platform::Peripheral> {
@@ -109,4 +118,22 @@ fn hex_to_bytes(hex: &str) -> anyhow::Result<Vec<u8>> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).context("invalid hex payload"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CharPropFlags, WriteType, characteristic_write_type};
+
+    #[test]
+    fn selects_supported_gatt_write_mode() {
+        assert_eq!(
+            characteristic_write_type(CharPropFlags::WRITE).unwrap(),
+            WriteType::WithResponse
+        );
+        assert_eq!(
+            characteristic_write_type(CharPropFlags::WRITE_WITHOUT_RESPONSE).unwrap(),
+            WriteType::WithoutResponse
+        );
+        assert!(characteristic_write_type(CharPropFlags::READ).is_err());
+    }
 }

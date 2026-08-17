@@ -39,6 +39,7 @@ struct MediaItem: Identifiable, Hashable {
     let date: String
     let time: String
     let sizeText: String
+    let bytes: UInt64?
     let kind: String
     let storageID: String
     let storageLabel: String
@@ -47,8 +48,25 @@ struct MediaItem: Identifiable, Hashable {
     var fileExtension: String { URL(fileURLWithPath: name).pathExtension.lowercased() }
     var isVideo: Bool { ["mp4", "mov", "insv", "lrv", "m4v"].contains(fileExtension) }
     var mediaCategory: String { isVideo ? "video" : "photo" }
+    var isLowResolutionPreview: Bool { kind.uppercased() == "LRV" || fileExtension == "lrv" }
+    var sortKey: String { "\(date) \(time) \(name)" }
+    var mediaPairKey: String? {
+        let base = URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent
+        let lower = base.lowercased()
+        let suffix: String
+        if lower.hasPrefix("vid_") || lower.hasPrefix("lrv_") {
+            suffix = String(lower.dropFirst(4))
+        } else {
+            return nil
+        }
+        let directory = String(url.prefix(upTo: url.lastIndex(of: "/").map { url.index(after: $0) } ?? url.startIndex))
+        return "\(storageID)|\(directory)|\(suffix)"
+    }
     var supportsWatermark: Bool {
         ["jpg", "jpeg", "png", "webp", "mp4", "mov", "m4v"].contains(fileExtension)
+    }
+    var supportsPreview: Bool {
+        ["jpg", "jpeg", "png", "webp", "insp", "mp4", "mov", "m4v", "insv", "lrv"].contains(fileExtension)
     }
 
     init?(_ json: [String: Any]) {
@@ -58,10 +76,83 @@ struct MediaItem: Identifiable, Hashable {
         date = json["date"] as? String ?? ""
         time = json["time"] as? String ?? ""
         sizeText = json["size_text"] as? String ?? ""
+        bytes = (json["bytes"] as? NSNumber)?.uint64Value
         kind = json["kind"] as? String ?? "photo"
         storageID = json["storage_id"] as? String ?? ""
         storageLabel = json["storage_label"] as? String ?? ""
     }
+}
+
+enum MediaSortOrder: String, CaseIterable, Identifiable {
+    case newest
+    case oldest
+
+    var id: String { rawValue }
+    var label: String { self == .newest ? "最新优先" : "最早优先" }
+}
+
+enum MediaDensity: String, CaseIterable, Identifiable {
+    case comfortable
+    case medium
+    case compact
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .comfortable: "大"
+        case .medium: "中"
+        case .compact: "小"
+        }
+    }
+
+    var minimumCardWidth: CGFloat {
+        switch self {
+        case .comfortable: 190
+        case .medium: 150
+        case .compact: 118
+        }
+    }
+
+    var maximumCardWidth: CGFloat {
+        switch self {
+        case .comfortable: 260
+        case .medium: 210
+        case .compact: 170
+        }
+    }
+
+    var previewHeight: CGFloat {
+        switch self {
+        case .comfortable: 125
+        case .medium: 100
+        case .compact: 78
+        }
+    }
+}
+
+struct MediaPreview: Identifiable {
+    let item: MediaItem
+    let localURL: URL
+    var id: String { item.id }
+}
+
+struct VideoFormatOption: Identifiable, Hashable {
+    let id: String
+    let label: String
+    let fpsValues: [Int]
+
+    static let lunaUltra: [VideoFormatOption] = [
+        .init(id: "8k_16_9", label: "8K · 16:9 · 7680×4320", fpsValues: [30, 25, 24]),
+        .init(id: "8k_2_35_1", label: "8K · 2.35:1 · 7680×3264", fpsValues: [30, 25, 24]),
+        .init(id: "4k_16_9", label: "4K · 16:9 · 3840×2160", fpsValues: [120, 100, 60, 50, 48, 30, 25, 24]),
+        .init(id: "4k_2_35_1", label: "4K · 2.35:1 · 3840×1632", fpsValues: [120, 100, 60, 50, 48, 30, 25, 24]),
+        .init(id: "3k_1_1", label: "3K · 1:1 · 3072×3072", fpsValues: [60, 50, 48, 30, 25, 24]),
+        .init(id: "3k_9_16", label: "3K · 9:16 · 1728×3072", fpsValues: [60, 50, 48, 30, 25, 24]),
+        .init(id: "2_7k_16_9", label: "2.7K · 16:9 · 2688×1520", fpsValues: [120, 100, 60, 50, 48, 30, 25, 24]),
+        .init(id: "2_7k_9_16", label: "2.7K · 9:16 · 1520×2688", fpsValues: [60, 50, 48, 30, 25, 24]),
+        .init(id: "1080p_16_9", label: "1080p · 16:9 · 1920×1080", fpsValues: [240, 200, 120, 100, 60, 50, 48, 30, 25, 24]),
+        .init(id: "1080p_9_16", label: "1080p · 9:16 · 1080×1920", fpsValues: [60, 50, 48, 30, 25, 24]),
+    ]
 }
 
 struct WatermarkStyleOption: Identifiable, Hashable {
@@ -121,6 +212,23 @@ struct MicDevice: Identifiable, Hashable {
         guard let address = json["address"] as? String else { return nil }
         name = json["name"] as? String ?? "Insta360 Mic"
         self.address = address
+    }
+}
+
+struct MicCharacteristic: Identifiable, Hashable {
+    let serviceUUID: String
+    let uuid: String
+    let properties: [String]
+
+    var id: String { "\(serviceUUID)|\(uuid)" }
+    var propertyText: String { properties.joined(separator: " · ") }
+    var canWrite: Bool { properties.contains { $0.uppercased().contains("WRITE") } }
+
+    init?(_ json: [String: Any]) {
+        guard let uuid = json["uuid"] as? String else { return nil }
+        serviceUUID = json["service_uuid"] as? String ?? ""
+        self.uuid = uuid
+        properties = json["properties"] as? [String] ?? []
     }
 }
 

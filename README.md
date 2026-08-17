@@ -36,6 +36,8 @@ F:/Insta360onWin/Insta360Linker.exe
 - 先切换到拍照模式才能拍照，先切换到录像模式才能开始录像。
 - 开始录像与停止录像，后端同样执行模式门禁，不能绕过界面误操作。
 - 显示录像计时和停止录像后返回的媒体路径。
+- 使用 `1.0×–12.0×`、步进 `0.1×` 的变焦滑杆；界面和后端执行相同的范围与精度校验。
+- 提供 Luna Ultra 全部十种常规录像画幅及各自实际支持的帧率组合。
 - 开启与关闭实时画面。
 - 使用方向键或二维触控盘连续控制相机云台，松开后自动停止。
 - 使用 APK 提取的多套官方水印资源导出照片或视频。
@@ -93,7 +95,7 @@ cargo build --release --bin Insta360Linker --target-dir target_daily
 
 应用产物为 `dist/Insta360Linker.app`，最低系统版本为 macOS 26。`Contents/MacOS/Insta360Linker` 是完全原生的 SwiftUI 主程序：使用系统 `NavigationSplitView`、`List`、`Toolbar`、`Form`、`GroupBox`、`ControlGroup`、`Picker`、`Slider`、对话框和 AppKit 文件面板。窗口使用稳定的系统背景，由 macOS 自动在侧栏、工具栏、选择态和适合的操作按钮上呈现 Liquid Glass；界面不再用手工玻璃面板堆叠层级，也不使用 WebView。
 
-原生界面使用渐进式显示：未连接相机时隐藏媒体管理和拍摄控制，录像规格只在录像模式出现；水印设置会根据输入文件和官方样式能力过滤，照片外框选项不会出现在视频流程中，外框背景及 Luna Moment 仅在外框水印中显示，自定义图片选择仅在选中自定义 Moment 后出现。
+原生界面使用渐进式显示：未连接相机时隐藏媒体管理和拍摄控制，录像规格只在录像模式出现；相机媒体支持原生图片/视频预览、LRV 配对、排序和三档网格密度；Mic Pro 页面支持查看并写入可写 GATT 特征。水印设置会根据输入文件和官方样式能力过滤，照片外框选项不会出现在视频流程中，外框背景及 Luna Moment 仅在外框水印中显示，自定义图片选择仅在选中自定义 Moment 后出现。
 
 Rust 相机协议、媒体下载、缩略图、实时取景解码、蓝牙和官方水印渲染器以 `Contents/Resources/Insta360LinkerBackend` 包内辅助进程运行，通过逐行 JSON 与 SwiftUI 通信。构建脚本会按当前 Mac 架构下载 FFmpeg，并将 FFmpeg、官方水印资源以及 Xcode 27 编译的原生 Liquid Glass 图标一起打包。图标的 `Assets.car` 保留 Icon Composer 分层、玻璃高光以及浅色/深色/着色外观；Android 和 Windows 使用同一图标工程导出的静态玻璃图。macOS 版本禁用 Windows Media Foundation 虚拟摄像机功能，但保留 SwiftUI 内 HEVC 实时监看。
 
