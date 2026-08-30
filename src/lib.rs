@@ -1,6 +1,9 @@
 #[cfg(windows)]
 mod virtual_camera;
 
+#[cfg(windows)]
+mod embedded_windows;
+
 #[cfg(target_os = "android")]
 mod android_bridge;
 

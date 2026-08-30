@@ -97,7 +97,7 @@ jobs:
           if (-not $versionMatch) { throw "Cargo package version is missing" }
           "value=$($versionMatch.Matches[0].Groups[1].Value)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Verify source and build binaries
+      - name: Verify source
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -105,8 +105,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Rust formatting check failed" }
           cargo test --locked --bin Insta360Linker
           if ($LASTEXITCODE -ne 0) { throw "Rust test suite failed" }
-          cargo build --release --locked
-          if ($LASTEXITCODE -ne 0) { throw "Windows release build failed" }
 
       - name: Download verified FFmpeg runtime
         shell: pwsh
@@ -126,38 +124,41 @@ jobs:
           if ($actual -ne $expected) { throw "FFmpeg archive checksum mismatch" }
           Expand-Archive -LiteralPath $asset -DestinationPath ffmpeg-package
 
-      - name: Verify and package Windows runtime
+      - name: Build single-file Windows executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cargo build --release --locked --lib
+          if ($LASTEXITCODE -ne 0) { throw "Windows virtual-camera DLL build failed" }
+          $ffmpeg = Get-ChildItem -Path ffmpeg-package -Filter ffmpeg.exe -Recurse | Select-Object -First 1
+          if (-not $ffmpeg) { throw "FFmpeg executable is missing from the verified archive" }
+          $ffmpegLicense = Get-ChildItem -Path ffmpeg-package -Filter COPYING.GPLv3 -Recurse | Select-Object -First 1
+          if (-not $ffmpegLicense) { throw "FFmpeg GPL license is missing from the verified archive" }
+          $env:INSTA360LINKER_WINDOWS_FFMPEG_PATH = $ffmpeg.FullName
+          $env:INSTA360LINKER_WINDOWS_FFMPEG_LICENSE_PATH = $ffmpegLicense.FullName
+          $env:INSTA360LINKER_WINDOWS_VCAM_DLL_PATH = (Resolve-Path "target/release/insta360_linker.dll").Path
+          cargo build --release --locked --bin Insta360Linker
+          if ($LASTEXITCODE -ne 0) { throw "Windows single-file release build failed" }
+
+      - name: Verify and package single EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $version = "${{ steps.version.outputs.value }}"
-          $root = "build/release/Insta360Linker-Windows-x64-v$version"
-          $assets = Join-Path $root "assets"
-          $ffmpegAssets = Join-Path $assets "ffmpeg"
-          $watermarkAssets = Join-Path $assets "apk_watermark"
-          New-Item -ItemType Directory -Force -Path $ffmpegAssets, $watermarkAssets | Out-Null
-          Copy-Item -LiteralPath "target/release/Insta360Linker.exe" -Destination $root
-          Copy-Item -LiteralPath "target/release/insta360_linker.dll" -Destination (Join-Path $root "Insta360LinkerVirtualCamera.dll")
-          Copy-Item -LiteralPath "run_release.bat" -Destination $root
-          Copy-Item -LiteralPath "README.md" -Destination $root
-          Copy-Item -Path "assets/apk_watermark/*" -Destination $watermarkAssets -Recurse
+          New-Item -ItemType Directory -Force -Path "build/release" | Out-Null
+          $package = "build/release/Insta360Linker-Windows-x64-v$version.exe"
+          Copy-Item -LiteralPath "target/release/Insta360Linker.exe" -Destination $package
           $ffmpeg = Get-ChildItem -Path ffmpeg-package -Filter ffmpeg.exe -Recurse | Select-Object -First 1
-          if (-not $ffmpeg) { throw "FFmpeg executable is missing from the verified archive" }
-          Copy-Item -LiteralPath $ffmpeg.FullName -Destination $ffmpegAssets
-          $ffmpegLicense = Get-ChildItem -Path ffmpeg-package -Filter COPYING.GPLv3 -Recurse | Select-Object -First 1
-          if ($ffmpegLicense) {
-            Copy-Item -LiteralPath $ffmpegLicense.FullName -Destination (Join-Path $ffmpegAssets "COPYING.GPLv3")
+          $dll = Get-Item -LiteralPath "target/release/insta360_linker.dll"
+          $verification = & $package --verify-single-file 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "Single-file runtime verification failed: $verification" }
+          if (($verification -join "`n") -notmatch "single-file resources ok:") {
+            throw "Single-file verification output is missing: $verification"
           }
-          foreach ($required in @(
-            (Join-Path $root "Insta360Linker.exe"),
-            (Join-Path $root "Insta360LinkerVirtualCamera.dll"),
-            (Join-Path $ffmpegAssets "ffmpeg.exe"),
-            (Join-Path $watermarkAssets "ic_watermark_luna_ultra_image_cn.png")
-          )) {
-            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Release file is missing: $required" }
+          $minimumSize = $ffmpeg.Length + $dll.Length
+          if ((Get-Item -LiteralPath $package).Length -le $minimumSize) {
+            throw "Single-file EXE is too small to contain the verified runtime"
           }
-          $package = "build/release/Insta360Linker-Windows-x64-v$version.zip"
-          Compress-Archive -Path $root -DestinationPath $package -CompressionLevel Optimal
           $hash = (Get-FileHash -Algorithm SHA256 $package).Hash.ToLowerInvariant()
           $checksumLine = "$hash  $([System.IO.Path]::GetFileName($package))`n"
           [System.IO.File]::WriteAllText("$package.sha256", $checksumLine, [System.Text.Encoding]::ASCII)
@@ -167,8 +168,8 @@ jobs:
         with:
           name: Insta360Linker-Windows-x64-v${{ steps.version.outputs.value }}
           path: |
-            build/release/Insta360Linker-Windows-x64-v${{ steps.version.outputs.value }}.zip
-            build/release/Insta360Linker-Windows-x64-v${{ steps.version.outputs.value }}.zip.sha256
+            build/release/Insta360Linker-Windows-x64-v${{ steps.version.outputs.value }}.exe
+            build/release/Insta360Linker-Windows-x64-v${{ steps.version.outputs.value }}.exe.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -287,7 +288,7 @@ jobs:
           set -euo pipefail
           find release-assets -maxdepth 1 -type f -print | sort
           printf '%s\n' \
-            'macOS ARM64 使用 Xcode 27 构建并进行 ad-hoc 签名；Windows x64 包含虚拟摄像机 DLL、FFmpeg 与官方水印资源；Android ARM64 APK 使用测试签名，升级后续正式签名版本前可能需要先卸载。' \
+            'macOS ARM64 使用 Xcode 27 构建并进行 ad-hoc 签名；Windows x64 是内置 FFmpeg、官方水印和虚拟摄像机组件的单 EXE；Android ARM64 APK 使用测试签名，升级后续正式签名版本前可能需要先卸载。' \
             '' \
             '所有文件均附带 SHA-256 校验文件。' > release-notes.md
           gh release create "$GITHUB_REF_NAME" \

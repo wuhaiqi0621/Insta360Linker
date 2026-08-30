@@ -324,7 +324,7 @@ fn apply_video_mark(options: &WatermarkOptions, style: &WatermarkStyle) -> anyho
         "[1:v][0:v]scale2ref=w=main_w*{:.6}:h=-1[wm][base];[base][wm]overlay=x=main_w*{:.6}:y=main_h*(1-{:.6})-overlay_h:format=auto[out]",
         placement.width_ratio, placement.x_ratio, placement.bottom_ratio
     );
-    let command_result = Command::new(ffmpeg_binary())
+    let command_result = Command::new(ffmpeg_binary()?)
         .args(["-y", "-i"])
         .arg(&options.input)
         .args(["-loop", "1", "-i"])
@@ -995,7 +995,7 @@ fn embolden_text(mut image: RgbaImage, color: [u8; 3]) -> RgbaImage {
 }
 
 fn extract_video_preview_frame(input: &Path) -> anyhow::Result<RgbaImage> {
-    let output = Command::new(ffmpeg_binary())
+    let output = Command::new(ffmpeg_binary()?)
         .args(["-hide_banner", "-loglevel", "error", "-ss", "0.2", "-i"])
         .arg(input)
         .args([
@@ -1054,6 +1054,11 @@ fn load_style_image(style: &WatermarkStyle, kind: MediaKind) -> anyhow::Result<V
 }
 
 fn load_runtime_asset(file: &str) -> anyhow::Result<Vec<u8>> {
+    #[cfg(windows)]
+    if let Some(bytes) = crate::embedded_windows::watermark_asset(file) {
+        return Ok(bytes.to_vec());
+    }
+
     for path in runtime_asset_candidates(file) {
         if path.exists() {
             return std::fs::read(&path)
@@ -1237,7 +1242,12 @@ fn ratio_label(width: u32, height: u32) -> &'static str {
         .unwrap_or("16:9")
 }
 
-fn ffmpeg_binary() -> PathBuf {
+fn ffmpeg_binary() -> anyhow::Result<PathBuf> {
+    #[cfg(windows)]
+    if crate::embedded_windows::has_embedded_ffmpeg() {
+        return crate::embedded_windows::ffmpeg_path();
+    }
+
     let mut candidates = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
@@ -1268,14 +1278,14 @@ fn ffmpeg_binary() -> PathBuf {
                 "ffmpeg"
             }),
     );
-    candidates
+    Ok(candidates
         .into_iter()
         .find(|path| path.is_file())
-        .unwrap_or_else(|| PathBuf::from("ffmpeg"))
+        .unwrap_or_else(|| PathBuf::from("ffmpeg")))
 }
 
 fn video_dimensions(input: &Path) -> anyhow::Result<(u32, u32)> {
-    let output = Command::new(ffmpeg_binary())
+    let output = Command::new(ffmpeg_binary()?)
         .args(["-hide_banner", "-i"])
         .arg(input)
         .output()

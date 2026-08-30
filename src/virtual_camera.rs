@@ -468,6 +468,10 @@ fn install_media_source_system(dll_path: &Path) -> anyhow::Result<()> {
 }
 
 fn find_media_source_dll() -> anyhow::Result<PathBuf> {
+    if crate::embedded_windows::has_embedded_virtual_camera_dll() {
+        return crate::embedded_windows::virtual_camera_dll_path();
+    }
+
     let executable =
         std::env::current_exe().map_err(|error| anyhow::anyhow!("无法读取程序路径：{error}"))?;
     let parent = executable

@@ -56,12 +56,12 @@ UCD2 0x0001 启动预览
 UCD2 0x0002 停止预览
 ```
 
-解码组件位于 `assets/ffmpeg/ffmpeg.exe`。运行程序时请保留 `assets` 目录与 EXE 的相对位置。
+Windows 发布版将 FFmpeg、官方水印资源和虚拟摄像机组件全部嵌入单个 `Insta360Linker.exe`。需要启动 FFmpeg 或注册虚拟摄像机时，程序会校验并按需释放对应组件到 `%LOCALAPPDATA%\Insta360Linker\Runtime\版本号`；用户无需保留或管理旁置的 `assets`、DLL、批处理文件。
 
 ## 使用
 
 1. 在 Windows Wi-Fi 设置中连接 Luna Ultra 热点。
-2. 运行 `run_release.bat`。
+2. 直接运行发布版 `Insta360Linker.exe`。
 3. 打开“拍摄控制”，点击“连接相机”。
 4. 等待“控制已就绪”，选择“拍照”或“录像”模式。
 5. 使用圆形快门按钮拍照，或开始、停止录像；云台控制位于页面下方。
@@ -77,7 +77,7 @@ cd F:\Insta360onWin
 cargo build --release --bin Insta360Linker --target-dir target_daily
 ```
 
-构建产物为 `target_daily/release/Insta360Linker.exe`。
+这条普通 Cargo 命令只适合开发调试，不会嵌入外部 FFmpeg 和虚拟摄像机 DLL。可分发的 Windows 单文件版本请使用 GitHub Actions 的 `Build Release Packages` 工作流；工作流先构建 DLL、验证 FFmpeg 官方发布校验值，再把 DLL、FFmpeg、许可证及官方水印全部编译进最终 EXE，并执行内置资源释放自检。
 
 ### Android
 
@@ -95,7 +95,7 @@ cargo build --release --bin Insta360Linker --target-dir target_daily
 
 应用产物为 `dist/Insta360Linker.app`，最低系统版本为 macOS 26。`Contents/MacOS/Insta360Linker` 是完全原生的 SwiftUI 主程序：使用系统 `NavigationSplitView`、`List`、`Toolbar`、`Form`、`GroupBox`、`ControlGroup`、`Picker`、`Slider`、对话框和 AppKit 文件面板。窗口使用稳定的系统背景，由 macOS 自动在侧栏、工具栏、选择态和适合的操作按钮上呈现 Liquid Glass；界面不再用手工玻璃面板堆叠层级，也不使用 WebView。
 
-统一的 `Build Release Packages` 工作流会用 Xcode 27 构建并校验 macOS ARM64 压缩包，同时生成包含完整运行时资源的 Windows x64 压缩包和 Android ARM64 APK。推送 `v*` 标签时，三个目标全部成功后才会自动创建 GitHub 预发布，并附带每个文件的 SHA-256 校验值。
+统一的 `Build Release Packages` 工作流会用 Xcode 27 构建并校验 macOS ARM64 压缩包，同时生成内置完整运行时资源的 Windows x64 单 EXE 和 Android ARM64 APK。推送 `v*` 标签时，三个目标全部成功后才会自动创建 GitHub 预发布，并附带每个文件的 SHA-256 校验值。
 
 原生界面使用渐进式显示：未连接相机时隐藏媒体管理和拍摄控制，录像规格只在录像模式出现；相机媒体支持原生图片/视频预览、LRV 配对、排序和三档网格密度；Mic Pro 页面支持查看并写入可写 GATT 特征。水印设置会根据输入文件和官方样式能力过滤，照片外框选项不会出现在视频流程中，外框背景及 Luna Moment 仅在外框水印中显示，自定义图片选择仅在选中自定义 Moment 后出现。
 
@@ -111,8 +111,8 @@ src/bin/html_app.rs         Windows WebView 主程序、macOS Rust 后端入口�
 macos/NativeApp/            macOS 纯 SwiftUI + Liquid Glass 前端
 web/index.html              Windows/Android 中文界面与交互
 web/app.css                 Windows Mica/Android 响应式设计系统
-assets/apk_watermark/       APK 水印资源
-assets/ffmpeg/ffmpeg.exe    实时画面解码器
+assets/apk_watermark/       APK 水印资源；Windows Release 编译时嵌入 EXE
+assets/ffmpeg/              开发期 FFmpeg 说明；Windows Release 在 CI 验证并嵌入 FFmpeg
 reverse_apk/                APK/PCAP 证据、分析工具与交接记录
 ```
 

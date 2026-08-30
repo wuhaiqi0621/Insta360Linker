@@ -10,6 +10,10 @@ mod profiles;
 #[path = "../virtual_camera.rs"]
 mod virtual_camera;
 
+#[cfg(target_os = "windows")]
+#[path = "../embedded_windows.rs"]
+mod embedded_windows;
+
 #[cfg(not(target_os = "windows"))]
 #[path = "../virtual_camera_unsupported.rs"]
 mod virtual_camera;
@@ -451,9 +455,16 @@ struct PickWatermarkOutputPayload {
     input: String,
 }
 
-fn bundled_ffmpeg_path() -> Option<PathBuf> {
-    let executable = std::env::current_exe().ok()?;
-    let executable_dir = executable.parent()?;
+fn bundled_ffmpeg_path() -> anyhow::Result<PathBuf> {
+    #[cfg(windows)]
+    if embedded_windows::has_embedded_ffmpeg() {
+        return embedded_windows::ffmpeg_path();
+    }
+
+    let executable = std::env::current_exe().context("无法读取程序路径")?;
+    let executable_dir = executable
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("程序目录不可用"))?;
     let binary_name = if cfg!(target_os = "windows") {
         "ffmpeg.exe"
     } else {
@@ -478,10 +489,41 @@ fn bundled_ffmpeg_path() -> Option<PathBuf> {
         }
     }
 
-    candidates.into_iter().find(|path| path.is_file())
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| anyhow::anyhow!("缺少 FFmpeg 运行时"))
 }
 
 fn main() -> wry::Result<()> {
+    #[cfg(windows)]
+    if std::env::args().any(|argument| argument == "--verify-single-file") {
+        match embedded_windows::verify_single_file_resources() {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(error) => {
+                eprintln!("single-file verification failed: {error:#}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    if std::env::args().any(|argument| argument == "--third-party-licenses") {
+        match embedded_windows::third_party_licenses() {
+            Some(licenses) => {
+                println!("{licenses}");
+                std::process::exit(0);
+            }
+            None => {
+                eprintln!("当前 EXE 未内置第三方许可证");
+                std::process::exit(1);
+            }
+        }
+    }
+
     #[cfg(target_os = "macos")]
     {
         if std::env::args().any(|argument| argument == "--native-backend") {
@@ -768,8 +810,7 @@ fn decode_preview_stream<F>(
 where
     F: FnMut(&[u8]) -> anyhow::Result<()>,
 {
-    let ffmpeg_path =
-        bundled_ffmpeg_path().context("缺少实时预览解码组件 Contents/Resources/ffmpeg/ffmpeg")?;
+    let ffmpeg_path = bundled_ffmpeg_path().context("缺少实时预览解码组件")?;
     let mut command = Command::new(ffmpeg_path);
     command.args([
         "-hide_banner",
@@ -2083,8 +2124,7 @@ fn load_image_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
 }
 
 fn load_video_thumbnail(url: &str) -> anyhow::Result<Vec<u8>> {
-    let ffmpeg_path = bundled_ffmpeg_path()
-        .ok_or_else(|| anyhow::anyhow!("缺少视频缩略图组件 assets/ffmpeg/ffmpeg"))?;
+    let ffmpeg_path = bundled_ffmpeg_path().context("缺少视频缩略图组件")?;
 
     let mut command = Command::new(ffmpeg_path);
     command.args([
