@@ -123,6 +123,12 @@ jobs:
           $actual = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLowerInvariant()
           if ($actual -ne $expected) { throw "FFmpeg archive checksum mismatch" }
           Expand-Archive -LiteralPath $asset -DestinationPath ffmpeg-package
+          $license = "ffmpeg-COPYING.GPLv3"
+          $licenseUrl = "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.0/COPYING.GPLv3"
+          $licenseExpected = "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+          Invoke-WebRequest -Uri $licenseUrl -OutFile $license
+          $licenseActual = (Get-FileHash -Algorithm SHA256 $license).Hash.ToLowerInvariant()
+          if ($licenseActual -ne $licenseExpected) { throw "FFmpeg GPL license checksum mismatch" }
 
       - name: Build single-file Windows executable
         shell: pwsh
@@ -132,8 +138,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Windows virtual-camera DLL build failed" }
           $ffmpeg = Get-ChildItem -Path ffmpeg-package -Filter ffmpeg.exe -Recurse | Select-Object -First 1
           if (-not $ffmpeg) { throw "FFmpeg executable is missing from the verified archive" }
-          $ffmpegLicense = Get-ChildItem -Path ffmpeg-package -Filter COPYING.GPLv3 -Recurse | Select-Object -First 1
-          if (-not $ffmpegLicense) { throw "FFmpeg GPL license is missing from the verified archive" }
+          $ffmpegLicense = Get-Item -LiteralPath "ffmpeg-COPYING.GPLv3"
           $env:INSTA360LINKER_WINDOWS_FFMPEG_PATH = $ffmpeg.FullName
           $env:INSTA360LINKER_WINDOWS_FFMPEG_LICENSE_PATH = $ffmpegLicense.FullName
           $env:INSTA360LINKER_WINDOWS_VCAM_DLL_PATH = (Resolve-Path "target/release/insta360_linker.dll").Path
