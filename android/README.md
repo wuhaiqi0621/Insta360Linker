@@ -11,14 +11,15 @@ The Android app uses a native Java WebView host and the same HTML UI as the Wind
 - Photo/video mode switching, zoom, recording profile, shutter and gimbal controls.
 - Photo/video watermark preview and export, including official and custom Luna Moment artwork. Final exports are also saved directly to the system gallery.
 - Native Android BLE scan for Mic Pro devices.
+- UCD2 HEVC live preview through Android MediaCodec, with decoder resynchronization and bounded WebView frame delivery.
 
-Windows virtual-camera registration is intentionally unavailable on Android. Live HEVC preview is not enabled until the UCD2 stream is connected to an Android MediaCodec decoder.
+Windows virtual-camera registration is intentionally unavailable on Android. The in-app live monitor remains available and does not create a system camera device.
 
 ## Build with GitHub Actions
 
-Run the `Build Android ARM64 APK` workflow manually from the repository Actions page. The Ubuntu job installs Java 17, Android API/Build Tools 36, NDK 28.2.13676358 and the Rust Android ARM64 target, then runs Android Lint and builds a debug-signed APK.
+Run the `Build Release Packages` workflow manually from the repository Actions page. The Ubuntu job installs Java 17, Android API/Build Tools 36, NDK 28.2.13676358 and the Rust Android ARM64 target, then runs the Java unit tests, Android Lint and the APK build.
 
-The successful run uploads a 14-day `Insta360Linker-android-arm64-debug` artifact containing the installable APK and `SHA256SUMS.txt`. The workflow also verifies the APK signature and checks that the ARM64 JNI library, Web UI and official watermark resources are packaged.
+The successful run uploads a 30-day `Insta360Linker-Android-arm64-v*` artifact containing the installable test-signed APK and its SHA-256 file. The workflow also verifies the APK signature and checks that the ARM64 JNI library, Web UI and official watermark resources are packaged. A pushed `v*` tag publishes the APK together with the macOS and Windows packages as a GitHub prerelease.
 
 ## Build on Windows
 

@@ -4,7 +4,8 @@ set -eu
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP_NAME="Insta360Linker"
 APP_DIR="$PROJECT_DIR/dist/$APP_NAME.app"
-CONTENTS_DIR="$APP_DIR/Contents"
+STAGING_APP_DIR="$PROJECT_DIR/dist/.$APP_NAME.app.staging"
+CONTENTS_DIR="$STAGING_APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 FFMPEG_BINARY="$PROJECT_DIR/assets/ffmpeg/ffmpeg"
@@ -38,8 +39,10 @@ if [ ! -x "$FFMPEG_BINARY" ]; then
 fi
 
 cd "$PROJECT_DIR"
-cargo build --release --bin Insta360Linker
+cargo build --release --bin Insta360Linker --locked
 
+rm -rf "$STAGING_APP_DIR"
+trap 'rm -rf "$STAGING_APP_DIR"' EXIT
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR/ffmpeg" "$RESOURCES_DIR/apk_watermark"
 cp "$PROJECT_DIR/target/release/Insta360Linker" "$RESOURCES_DIR/Insta360LinkerBackend"
 
@@ -69,6 +72,9 @@ cp -R "$WATERMARK_RESOURCES/." "$RESOURCES_DIR/apk_watermark/"
 
 chmod +x "$MACOS_DIR/$APP_NAME" "$RESOURCES_DIR/Insta360LinkerBackend"
 codesign --force --sign - "$RESOURCES_DIR/Insta360LinkerBackend"
-codesign --force --deep --sign - "$APP_DIR"
+codesign --force --deep --sign - "$STAGING_APP_DIR"
+
+rm -rf "$APP_DIR"
+mv "$STAGING_APP_DIR" "$APP_DIR"
 
 echo "$APP_DIR"

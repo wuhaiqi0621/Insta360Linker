@@ -81,7 +81,7 @@ cargo build --release --bin Insta360Linker --target-dir target_daily
 
 ### Android
 
-在 GitHub 仓库的 Actions 页面手动运行 `Build Android ARM64 APK`，流程会使用 Java 17、Android API/Build Tools 36、NDK 28.2.13676358 和 Rust `aarch64-linux-android` 目标构建并验证 Debug APK。完成后从运行页面下载 `Insta360Linker-android-arm64-debug` artifact；其中包含 APK 和 `SHA256SUMS.txt`。
+在 GitHub 仓库的 Actions 页面手动运行 `Build Release Packages`，流程会使用 Java 17、Android API/Build Tools 36、NDK 28.2.13676358 和 Rust `aarch64-linux-android` 目标构建并验证 ARM64 APK。完成后下载 `Insta360Linker-Android-arm64-v*` artifact；APK 采用测试签名，适合直接安装验证，但不是应用商店正式签名版本。
 
 本地 Windows 构建方法见 [`android/README.md`](android/README.md)。
 
@@ -94,6 +94,8 @@ cargo build --release --bin Insta360Linker --target-dir target_daily
 ```
 
 应用产物为 `dist/Insta360Linker.app`，最低系统版本为 macOS 26。`Contents/MacOS/Insta360Linker` 是完全原生的 SwiftUI 主程序：使用系统 `NavigationSplitView`、`List`、`Toolbar`、`Form`、`GroupBox`、`ControlGroup`、`Picker`、`Slider`、对话框和 AppKit 文件面板。窗口使用稳定的系统背景，由 macOS 自动在侧栏、工具栏、选择态和适合的操作按钮上呈现 Liquid Glass；界面不再用手工玻璃面板堆叠层级，也不使用 WebView。
+
+统一的 `Build Release Packages` 工作流会用 Xcode 27 构建并校验 macOS ARM64 压缩包，同时生成包含完整运行时资源的 Windows x64 压缩包和 Android ARM64 APK。推送 `v*` 标签时，三个目标全部成功后才会自动创建 GitHub 预发布，并附带每个文件的 SHA-256 校验值。
 
 原生界面使用渐进式显示：未连接相机时隐藏媒体管理和拍摄控制，录像规格只在录像模式出现；相机媒体支持原生图片/视频预览、LRV 配对、排序和三档网格密度；Mic Pro 页面支持查看并写入可写 GATT 特征。水印设置会根据输入文件和官方样式能力过滤，照片外框选项不会出现在视频流程中，外框背景及 Luna Moment 仅在外框水印中显示，自定义图片选择仅在选中自定义 Moment 后出现。
 
