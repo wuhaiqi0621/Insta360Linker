@@ -159,7 +159,8 @@ jobs:
           $package = "build/release/Insta360Linker-Windows-x64-v$version.zip"
           Compress-Archive -Path $root -DestinationPath $package -CompressionLevel Optimal
           $hash = (Get-FileHash -Algorithm SHA256 $package).Hash.ToLowerInvariant()
-          "$hash  $([System.IO.Path]::GetFileName($package))" | Out-File -FilePath "$package.sha256" -Encoding ascii
+          $checksumLine = "$hash  $([System.IO.Path]::GetFileName($package))`n"
+          [System.IO.File]::WriteAllText("$package.sha256", $checksumLine, [System.Text.Encoding]::ASCII)
 
       - name: Upload Windows package
         uses: actions/upload-artifact@v7
