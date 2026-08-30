@@ -139,9 +139,12 @@ jobs:
           $ffmpeg = Get-ChildItem -Path ffmpeg-package -Filter ffmpeg.exe -Recurse | Select-Object -First 1
           if (-not $ffmpeg) { throw "FFmpeg executable is missing from the verified archive" }
           $ffmpegLicense = Get-Item -LiteralPath "ffmpeg-COPYING.GPLv3"
+          New-Item -ItemType Directory -Force -Path "build/embed" | Out-Null
+          $embeddedDll = "build/embed/Insta360LinkerVirtualCamera.dll"
+          Copy-Item -LiteralPath "target/release/insta360_linker.dll" -Destination $embeddedDll
           $env:INSTA360LINKER_WINDOWS_FFMPEG_PATH = $ffmpeg.FullName
           $env:INSTA360LINKER_WINDOWS_FFMPEG_LICENSE_PATH = $ffmpegLicense.FullName
-          $env:INSTA360LINKER_WINDOWS_VCAM_DLL_PATH = (Resolve-Path "target/release/insta360_linker.dll").Path
+          $env:INSTA360LINKER_WINDOWS_VCAM_DLL_PATH = (Resolve-Path $embeddedDll).Path
           cargo build --release --locked --bin Insta360Linker
           if ($LASTEXITCODE -ne 0) { throw "Windows single-file release build failed" }
 
@@ -154,7 +157,7 @@ jobs:
           $package = "build/release/Insta360Linker-Windows-x64-v$version.exe"
           Copy-Item -LiteralPath "target/release/Insta360Linker.exe" -Destination $package
           $ffmpeg = Get-ChildItem -Path ffmpeg-package -Filter ffmpeg.exe -Recurse | Select-Object -First 1
-          $dll = Get-Item -LiteralPath "target/release/insta360_linker.dll"
+          $dll = Get-Item -LiteralPath "build/embed/Insta360LinkerVirtualCamera.dll"
           $verification = & $package --verify-single-file 2>&1
           if ($LASTEXITCODE -ne 0) { throw "Single-file runtime verification failed: $verification" }
           if (($verification -join "`n") -notmatch "single-file resources ok:") {
