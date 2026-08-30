@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | tr -d '\r' | head -n 1)"
           test -n "$version"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' macos/Info.plist)" = "$version"
           echo "value=$version" >> "$GITHUB_OUTPUT"
@@ -202,7 +202,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | tr -d '\r' | head -n 1)"
           test -n "$version"
           grep -Fq "versionName \"$version\"" android/app/build.gradle
           echo "value=$version" >> "$GITHUB_OUTPUT"
